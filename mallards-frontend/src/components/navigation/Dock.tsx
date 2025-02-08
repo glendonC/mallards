@@ -58,8 +58,9 @@ const Dock: React.FC = () => {
     { id: "home", path: "/dashboard", icon: "home", class: "dock-hover-fx" },
     { id: "anomalies", path: "/anomalies", icon: "chart-line", class: "dock-hover-fx-1" },
     { id: "predictive", path: "/predictive", icon: "chart-bar", class: "dock-hover-fx-2" },
-    { id: "theme", modal: "theme", icon: "palette", class: "dock-hover-fx-3" },
-    { id: "help", modal: "help", icon: "question-circle", class: "dock-hover-fx-4" }
+    { id: "simulation", path: "/simulation", icon: "flask", class: "dock-hover-fx-3" },
+    { id: "theme", modal: "theme", icon: "palette", class: "dock-hover-fx-4" },
+    { id: "help", modal: "help", icon: "question-circle", class: "dock-hover-fx-5" }
   ];
 
   const handleModalClose = (): void => {

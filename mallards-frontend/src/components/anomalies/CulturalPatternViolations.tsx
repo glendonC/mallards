@@ -254,101 +254,6 @@ const CulturalPatternViolations: React.FC<Props> = ({
     </div>
   );
 
-  // Add investigation panel component
-  const renderInvestigationPanel = (violation: CulturalViolation) => (
-    <div className="mt-4 p-4 rounded-lg border border-opacity-10" style={{ borderColor: customColors?.borderColor }}>
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-medium">Investigation Details</h4>
-        <div className="flex items-center gap-2">
-          <button 
-            className="px-3 py-1 text-xs rounded border border-opacity-20 hover:bg-opacity-10 transition-colors"
-            style={{ borderColor: customColors?.borderColor, backgroundColor: customColors?.backgroundColor }}
-            onClick={() => window.open(`/transactions/${violation.id}`, '_blank')}
-          >
-            View Transactions
-          </button>
-          <button 
-            className="px-3 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors"
-            onClick={() => handleInvestigate(violation.id)}
-          >
-            Start Investigation
-          </button>
-        </div>
-      </div>
-
-      {/* Related Transactions */}
-      {violation.relatedTransactions && violation.relatedTransactions.length > 0 && (
-        <div className="mt-4">
-          <h5 className="text-xs font-medium mb-2">Related Transactions</h5>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
-            {violation.relatedTransactions.map((txId, index) => (
-              <div 
-                key={index}
-                className="text-xs p-2 rounded"
-                style={{ backgroundColor: `${customColors?.backgroundColor}30` }}
-              >
-                Transaction ID: {txId}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Investigation Actions */}
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <div className="p-3 rounded" style={{ backgroundColor: `${customColors?.backgroundColor}20` }}>
-          <h5 className="text-xs font-medium mb-2">Quick Actions</h5>
-          <div className="space-y-2">
-            <button 
-              className="w-full px-2 py-1 text-xs rounded border border-opacity-20 hover:bg-opacity-10 transition-colors"
-              style={{ borderColor: customColors?.borderColor }}
-              onClick={() => handleAction('adjust-thresholds')}
-            >
-              Adjust Thresholds
-            </button>
-            <button 
-              className="w-full px-2 py-1 text-xs rounded border border-opacity-20 hover:bg-opacity-10 transition-colors"
-              style={{ borderColor: customColors?.borderColor }}
-              onClick={() => handleAction('update-rules')}
-            >
-              Update Rules
-            </button>
-          </div>
-        </div>
-        <div className="p-3 rounded" style={{ backgroundColor: `${customColors?.backgroundColor}20` }}>
-          <h5 className="text-xs font-medium mb-2">Analysis Tools</h5>
-          <div className="space-y-2">
-            <button 
-              className="w-full px-2 py-1 text-xs rounded border border-opacity-20 hover:bg-opacity-10 transition-colors"
-              style={{ borderColor: customColors?.borderColor }}
-              onClick={() => handleAction('pattern-analysis')}
-            >
-              Pattern Analysis
-            </button>
-            <button 
-              className="w-full px-2 py-1 text-xs rounded border border-opacity-20 hover:bg-opacity-10 transition-colors"
-              style={{ borderColor: customColors?.borderColor }}
-              onClick={() => handleAction('historical-comparison')}
-            >
-              Historical Comparison
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Add action handlers
-  const handleInvestigate = (id: string) => {
-    console.log('Starting investigation for:', id);
-    // Implement investigation logic
-  };
-
-  const handleAction = (action: string) => {
-    console.log('Executing action:', action);
-    // Implement action logic
-  };
-
   // Add pattern classification components
   const renderPatternClassification = (violations: CulturalViolation[]) => {
     // Group violations by category
@@ -516,14 +421,6 @@ const CulturalPatternViolations: React.FC<Props> = ({
       {/* Add Pattern Classification */}
       {data.length > 0 && renderPatternClassification(data)}
 
-      {/* Pattern Comparison and Severity Details */}
-      {data.length > 0 && (
-        <>
-          {renderPatternComparison(data[0])}
-          {renderSeverityDetails(data[0])}
-        </>
-      )}
-
       {/* Alerts List */}
       <div className="space-y-2">
         {data.slice(0, 5).map((violation) => (
@@ -537,7 +434,11 @@ const CulturalPatternViolations: React.FC<Props> = ({
                   violation.severity === 'medium' ? '#f59e0b' : '#10b981'
                 }`
               }}
-              onClick={() => setSelectedViolation(violation)}
+              onClick={() => {
+                setSelectedViolation(prev => 
+                  prev?.id === violation.id ? null : violation
+                );
+              }}
             >
               <div className="flex items-start justify-between">
                 <div>
@@ -553,12 +454,19 @@ const CulturalPatternViolations: React.FC<Props> = ({
                 </div>
               </div>
             </div>
-            
-            {/* Show investigation panel when violation is selected */}
-            {selectedViolation?.id === violation.id && renderInvestigationPanel(violation)}
+
+            {/* Details section inside the map */}
+            {selectedViolation?.id === violation.id && (
+              <div className="mt-4">
+                {renderPatternComparison(violation)}
+                {renderSeverityDetails(violation)}
+              </div>
+            )}
           </div>
         ))}
       </div>
+
+      
     </div>
   );
 };

@@ -1,29 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { Bot } from 'lucide-react';
 import Dock from '../components/navigation/Dock';
 import CulturalPatternViolations from '../components/anomalies/CulturalPatternViolations';
 import AIDecisionConflicts from '../components/anomalies/AIDecisionConflicts';
 import UnusualDeviations from '../components/anomalies/UnusualDeviations';
-import { CulturalViolation, AIDecisionData, UnusualDeviation, ModelInfo } from '../types/anomaly';
+import AnomaliesAIPanel from '@/components/anomalies/AnomaliesAIPanel';
+import { useDeviations } from '@/hooks/useDeviations';
 import { useData } from '../context/DataContext';
-
-const mockModelInfo: ModelInfo = {
-  type: 'isolation-forest',
-  name: 'Isolation Forest',
-  confidence: 0.92,
-  parameters: {
-    contamination: 0.1,
-    n_estimators: 100
-  }
-};
+import { CulturalViolation, AIDecisionData } from '../types/anomaly';
 
 const Anomalies: React.FC = () => {
   const { customColors } = useTheme();
   const { getProcessedData } = useData();
+  const { deviations } = useDeviations();
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d' | 'all'>('24h');
   const [isLoadingViolations, setIsLoadingViolations] = useState(true);
   const [isLoadingDecisions, setIsLoadingDecisions] = useState(true);
   const [isLoadingDeviations, setIsLoadingDeviations] = useState(true);
+  const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -32,7 +27,6 @@ const Anomalies: React.FC = () => {
       setIsLoadingDeviations(true);
   
       try {
-        // Force a re-render of components by setting loading states
         await new Promise(resolve => setTimeout(resolve, 300));
         setIsLoadingViolations(false);
         setIsLoadingDecisions(false);
@@ -46,41 +40,7 @@ const Anomalies: React.FC = () => {
     };
   
     loadData();
-  }, [timeRange]); // This will re-run when timeRange changes
-
-  const handleInvestigate = (id: string) => {
-    // Get deviations from real data
-    const deviations = getUnusualDeviations();
-    const deviation = deviations.find(d => d.id === id);
-    if (!deviation) return;
-
-    console.log('Investigation started:', {
-      id,
-      timestamp: new Date().toISOString(),
-      severity: deviation.severity,
-      pattern: deviation.pattern
-    });
-
-    // TODO: Implement real investigation logic
-    // For now, just log the investigation
-  };
-
-  const handleResolve = (id: string) => {
-    // Get deviations from real data
-    const deviations = getUnusualDeviations();
-    const deviation = deviations.find(d => d.id === id);
-    if (!deviation) return;
-
-    console.log('Deviation resolved:', {
-      id,
-      timestamp: new Date().toISOString(),
-      pattern: deviation.pattern,
-      severity: deviation.severity
-    });
-
-    // TODO: Implement real resolution logic
-    // For now, just log the resolution
-  };
+  }, [timeRange]);
 
   // Process real data for cultural violations
   const getCulturalViolations = (): CulturalViolation[] => {
@@ -225,143 +185,57 @@ const Anomalies: React.FC = () => {
     };
   };
 
-  // Add this function after getDecisionConflicts
-  const getUnusualDeviations = (): UnusualDeviation[] => {
-    const processedData = getProcessedData() as Array<{
-      transactionDate: string;
-      amount: string;
-      approvalStatus: string;
-      region: string;
-    }>;
-
-    // Get start date based on timeRange
-    const getStartDate = () => {
-      const now = new Date();
-      switch (timeRange) {
-        case '24h':
-          return new Date(now.setHours(now.getHours() - 24));
-        case '7d':
-          return new Date(now.setDate(now.getDate() - 7));
-        case '30d':
-          return new Date(now.setDate(now.getDate() - 30));
-        case 'all':
-          return new Date(0); // Beginning of time
-        default:
-          return new Date(now.setHours(now.getHours() - 24));
-      }
-    };
-
-    // Get start date based on timeRange
-    const startDate = getStartDate();
-    const filteredData = processedData.filter(tx => 
-      new Date(tx.transactionDate) >= startDate
-    );
-
-    // Calculate baseline metrics
-    const baselineMetrics = {
-      avgAmount: filteredData.reduce((sum, tx) => sum + parseFloat(tx.amount), 0) / filteredData.length,
-      approvalRate: filteredData.filter(tx => tx.approvalStatus?.toLowerCase() === 'approved').length / filteredData.length,
-      hourlyVolume: filteredData.length / 24
-    };
-
-    // Detect unusual patterns
-    const deviations: UnusualDeviation[] = [];
-    const hourlyData = new Map<number, any>();
-
-    // Group by hour for pattern detection
-    filteredData.forEach(tx => {
-      const hour = new Date(tx.transactionDate).getHours();
-      if (!hourlyData.has(hour)) {
-        hourlyData.set(hour, { transactions: [], amount: 0, approvals: 0 });
-      }
-      const hourData = hourlyData.get(hour);
-      hourData.transactions.push(tx);
-      hourData.amount += parseFloat(tx.amount);
-      if (tx.approvalStatus?.toLowerCase() === 'approved') {
-        hourData.approvals++;
-      }
-    });
-
-    // Analyze hourly patterns
-    hourlyData.forEach((data, hour) => {
-      const hourlyAvgAmount = data.amount / data.transactions.length;
-      const hourlyApprovalRate = data.approvals / data.transactions.length;
-      const hourlyVolume = data.transactions.length;
-
-      // Check for significant deviations
-      if (
-        Math.abs(hourlyAvgAmount - baselineMetrics.avgAmount) > baselineMetrics.avgAmount * 0.5 ||
-        Math.abs(hourlyApprovalRate - baselineMetrics.approvalRate) > 0.2 ||
-        Math.abs(hourlyVolume - baselineMetrics.hourlyVolume) > baselineMetrics.hourlyVolume * 0.5
-      ) {
-        deviations.push({
-          id: `deviation-${hour}`,
-          timestamp: new Date().setHours(hour).toString(),
-          severity: hourlyAvgAmount > baselineMetrics.avgAmount * 2 ? 'high' : 'medium',
-          score: Math.min(100, Math.abs((hourlyAvgAmount / baselineMetrics.avgAmount - 1) * 100)),
-          pattern: 'Unusual transaction pattern',
-          modelConfidence: 0.85,
-          modelType: 'isolation-forest',
-          explanation: `Significant deviation in hour ${hour}`,
-          affectedMetrics: [
-            {
-              metric: 'amount',
-              value: hourlyAvgAmount,
-              expectedRange: [baselineMetrics.avgAmount * 0.5, baselineMetrics.avgAmount * 1.5]
-            },
-            {
-              metric: 'approval_rate',
-              value: hourlyApprovalRate * 100,
-              expectedRange: [baselineMetrics.approvalRate * 50, baselineMetrics.approvalRate * 150]
-            }
-          ],
-          status: 'pending'
-        });
-      }
-    });
-
-    return deviations;
-  };
-
   return (
     <div 
       className="min-h-screen relative" 
       style={{ backgroundColor: customColors?.backgroundColor }}
     >
-      {/* Main content area with scrolling */}
-      <div 
-        className="h-screen overflow-y-auto pb-[120px]"
-      >
+      <div className="h-screen overflow-y-auto pb-[120px]">
         <div className="p-6 space-y-6">
-          <h1 className="text-2xl font-bold" style={{ color: customColors?.textColor }}>
-            Anomalies
-          </h1>
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold" style={{ color: customColors?.textColor }}>
+              Anomalies
+            </h1>
+            <button
+              onClick={() => setIsAIPanelOpen(true)}
+              className="px-3 py-1 rounded-lg bg-blue-500 text-white text-sm flex items-center gap-1"
+            >
+              <Bot className="w-4 h-4" />
+              Analyze
+            </button>
+          </div>
 
           <CulturalPatternViolations
             data={getCulturalViolations()}
             timeRange={timeRange}
             onTimeRangeChange={setTimeRange}
-            isLoading={false}
+            isLoading={isLoadingViolations}
           />
 
           <AIDecisionConflicts
             data={getDecisionConflicts()}
             timeRange={timeRange}
             onTimeRangeChange={setTimeRange}
-            isLoading={false}
+            isLoading={isLoadingDecisions}
           />
 
-          <UnusualDeviations
-            deviations={getUnusualDeviations()}
-            modelInfo={mockModelInfo}
-            onInvestigate={handleInvestigate}
-            onResolve={handleResolve}
-            isLoading={false}
-          />
+          <UnusualDeviations />
         </div>
       </div>
 
-      {/* Dock fixed at bottom */}
+      {/* AI Panel */}
+      <AnomaliesAIPanel
+        isOpen={isAIPanelOpen}
+        onClose={() => setIsAIPanelOpen(false)}
+        data={{
+          violations: getCulturalViolations(),
+          decisions: getDecisionConflicts(),
+          deviations: useDeviations().deviations
+        }}
+        customColors={customColors}
+      />
+
       <div className="fixed bottom-0 left-0 right-0">
         <Dock />
       </div>

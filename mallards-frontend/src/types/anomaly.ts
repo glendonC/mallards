@@ -14,13 +14,11 @@ export interface FilterState {
   searchQuery: string;
 }
 
-// Enhanced CulturalViolation
 export interface CulturalViolation extends Anomaly {
   culturalContext: string;
   expectedPattern: string;
   actualPattern: string;
   impactScore: number;
-  // New fields
   metrics: PatternMetrics[];
   relatedTransactions?: string[];
   culturalPeriod: {
@@ -69,7 +67,6 @@ export interface AIDecisionData {
     deviation: number;
     impact: number;
   }[];
-  // New fields
   focusType: 'spending' | 'approval' | 'regional';
   analysis: ConflictAnalysis;
   culturalPeriods: CulturalContext[];
@@ -135,4 +132,17 @@ export interface ConflictAnalysis {
     deviation: number;
     culturalContext?: string;
   }[];
+}
+
+export interface AnomaliesData {
+  violations: CulturalViolation[];
+  decisions: AIDecisionData;
+  deviations: UnusualDeviation[];
+}
+
+export interface AnomaliesAIPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  data: AnomaliesData;
+  customColors: any;
 }
