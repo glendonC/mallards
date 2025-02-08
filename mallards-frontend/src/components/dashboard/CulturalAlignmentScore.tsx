@@ -2,20 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
 import { Line } from 'react-chartjs-2';
-import { ArrowUp, ArrowDown, Calendar } from 'lucide-react';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-} from 'chart.js';
-import { getPatternPredictions } from '@/services/api';
+import { ArrowUp, ArrowDown, Calendar, Users, Heart, BookOpen, TrendingUp, AlertCircle } from 'lucide-react';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ChartData } from 'chart.js';
 
-// Register Chart.js components
+// Register ChartJS components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -26,336 +16,678 @@ ChartJS.register(
   Legend
 );
 
-interface Props {
-  isPreview?: boolean;
-  showDetails?: boolean;
+// Types
+interface ProcessedTransaction {
+  date: Date;
+  amount: number;
+  type: string;
+  approved?: boolean;
+  region?: string;
 }
 
 interface AlignmentMetrics {
   score: number;
-  culturalPeriodScore: number;
-  normalPeriodScore: number;
-  trend: number;
-  confidence: number;
+  factors: {
+    temporal: number;   // Time-based patterns
+    regional: number;   // Geographic distribution
+    categorical: number; // Transaction type patterns
+  };
 }
 
-interface TimelineEntry {
-  date: string;
-  score: number;
-  isCulturalPeriod: boolean;
+interface HistoricalEntry {
+  timestamp: string;
+  metrics: AlignmentMetrics;
+  volume: number;
+  approvalRate?: number;
+}
+
+interface AlignmentEvent {
+  id: string;
+  startDate: string;
+  endDate: string;
+  type: 'volume' | 'pattern' | 'decision';
+  status: 'active' | 'upcoming' | 'past';
+  intensity: number;
+  metrics: {
+    before: number;
+    during: number;
+    after?: number;
+  };
+}
+
+interface Props {
+  showFactors?: boolean;
+  isPreview?: boolean;
+  isFocused?: boolean;
+}
+
+interface FocusVisualization {
+  title: string;
+  primaryMetric: string;
+  secondaryMetrics: string[];
+  color: string;
+  thresholds: {
+    warning: number;
+    critical: number;
+  };
 }
 
 const CulturalAlignmentScore: React.FC<Props> = ({ 
+  showFactors = false,
   isPreview = false,
-  showDetails = false 
+  isFocused = false
 }) => {
-  // States
-  const [metrics, setMetrics] = useState<AlignmentMetrics | null>(null);
-  const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   // Hooks
   const { customColors } = useTheme();
   const { 
     columnMapping, 
     getProcessedData, 
-    selectedModels,
-    selectedFocus 
+    selectedModels, 
+    selectedFocus,
+    detectionRules 
   } = useData();
 
-  // Check if a date falls within a cultural period
-  const isCulturalPeriod = (date: Date): boolean => {
-    const month = date.getMonth();
-    const day = date.getDate();
-    const dayOfWeek = date.getDay();
+  // State
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('month');
+  const [alignmentData, setAlignmentData] = useState<{
+    current: AlignmentMetrics;
+    history: HistoricalEntry[];
+    events: AlignmentEvent[];
+    trend: number;
+  } | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<AlignmentEvent | null>(null);
 
-    // Weekend detection
-    if (dayOfWeek === 0 || dayOfWeek === 6) return true;
-
-    // Major holidays/cultural periods
-    if (
-      (month === 11 && day >= 20) || // Christmas/End of year
-      (month === 0 && day <= 7) ||   // New Year
-      (month === 6 && day === 4)     // Independence Day
-    ) return true;
-
-    return false;
-  };
-
-  // Process transaction data and calculate metrics
-  const processTransactionData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Validate required fields
-      if (!columnMapping.approvalStatus || !columnMapping.transactionDate) {
-        throw new Error('Missing required fields: Approval Status and Transaction Date');
-      }
-
-      const rawData = getProcessedData();
-      
-      // Process and sort transactions by date
-      const transactions = rawData
-        .filter(tx => tx.transactionDate && tx.approvalStatus)
-        .map(tx => ({
-          date: new Date(tx.transactionDate),
-          approved: tx.approvalStatus.toLowerCase() === 'approved',
-          amount: parseFloat(tx.amount || '0')
-        }))
-        .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-      if (!transactions.length) {
-        throw new Error('No valid transactions found');
-      }
-
-      // Get AI model predictions if available
-      let modelPredictions = null;
-      // Inside processTransactionData function, modify the model predictions section:
-      if (selectedModels.anomaly) {
-        try {
-          // Transform the data to match backend expectations
-          const formattedTransactions = transactions.map(tx => ({
-            transactionDate: tx.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
-            amount: tx.amount,
-            transactionType: 'standard', // Add default since we don't track this
-            approvalStatus: tx.approved ? 'approved' : 'rejected',
-            region: 'global' // Add default since we don't track this
-          }));
-
-          modelPredictions = await getPatternPredictions(
-            formattedTransactions,
-            {
-              focusMode: selectedFocus || 'pattern',
-              window: 'month',
-              sensitivity: 2
-            }
-          );
-        } catch (error) {
-          console.warn('Model predictions unavailable, using heuristic calculations:', error);
-        }
-      }
-
-      // Separate cultural and normal period transactions
-      const culturalPeriodTxs = transactions.filter(tx => isCulturalPeriod(tx.date));
-      const normalPeriodTxs = transactions.filter(tx => !isCulturalPeriod(tx.date));
-
-      // Calculate approval rates
-      const calculateApprovalRate = (txs: typeof transactions) =>
-        txs.length ? (txs.filter(tx => tx.approved).length / txs.length) * 100 : 0;
-
-      const culturalPeriodScore = calculateApprovalRate(culturalPeriodTxs);
-      const normalPeriodScore = calculateApprovalRate(normalPeriodTxs);
-
-      // Generate timeline data
-      const timelineData: TimelineEntry[] = [];
-      let currentDate = transactions[0].date;
-      const endDate = transactions[transactions.length - 1].date;
-      
-      while (currentDate <= endDate) {
-        const windowEnd = new Date(currentDate);
-        windowEnd.setDate(windowEnd.getDate() + 7);
-
-        const windowTxs = transactions.filter(
-          tx => tx.date >= currentDate && tx.date <= windowEnd
-        );
-
-        if (windowTxs.length) {
-          timelineData.push({
-            date: currentDate.toISOString(),
-            score: calculateApprovalRate(windowTxs),
-            isCulturalPeriod: isCulturalPeriod(currentDate)
-          });
-        }
-
-        currentDate = windowEnd;
-      }
-
-      // Calculate overall metrics
-      const overallScore = modelPredictions?.accuracy || 
-      (culturalPeriodTxs.length + normalPeriodTxs.length > 0 
-        ? ((culturalPeriodScore * culturalPeriodTxs.length) + 
-           (normalPeriodScore * normalPeriodTxs.length)) / 
-          (culturalPeriodTxs.length + normalPeriodTxs.length)
-        : 0);
-    
-      const trend = timelineData.length > 1 
-        ? ((timelineData[timelineData.length - 1].score - timelineData[0].score) / 
-          Math.max(timelineData[0].score, 0.1)) * 100
-        : 0;
-      
-      setMetrics({
-        score: overallScore,
-        culturalPeriodScore,
-        normalPeriodScore,
-        trend,
-        confidence: modelPredictions?.confidence || 85
-      });
-      
-      console.log("Setting Metrics:", {
-        score: overallScore,
-        culturalPeriodScore,
-        normalPeriodScore,
-        trend,
-        confidence: modelPredictions?.confidence || 85
-      });
-
-      setTimeline(timelineData);
-
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to process data');
-      console.error('Error processing transaction data:', error);
-    } finally {
-      setIsLoading(false);
+  // Focus-based configuration
+  const getFocusConfig = (): FocusVisualization => {
+    switch (selectedFocus) {
+      case 'pattern':
+        return {
+          title: 'Pattern Alignment',
+          primaryMetric: 'Pattern Strength',
+          secondaryMetrics: ['Temporal', 'Category'],
+          color: '#3b82f6',
+          thresholds: {
+            warning: detectionRules.threshold * 0.8,
+            critical: detectionRules.threshold
+          }
+        };
+      case 'decision':
+        return {
+          title: 'Decision Alignment',
+          primaryMetric: 'Approval Balance',
+          secondaryMetrics: ['Regional', 'Temporal'],
+          color: '#10b981',
+          thresholds: {
+            warning: detectionRules.alertThreshold * 0.9,
+            critical: detectionRules.alertThreshold
+          }
+        };
+      case 'bias':
+        return {
+          title: 'Regional Fairness',
+          primaryMetric: 'Equity Score',
+          secondaryMetrics: ['Regional', 'Category'],
+          color: '#8b5cf6',
+          thresholds: {
+            warning: detectionRules.threshold * 0.85,
+            critical: detectionRules.threshold
+          }
+        };
+      default:
+        return {
+          title: 'Overall Alignment',
+          primaryMetric: 'Alignment Score',
+          secondaryMetrics: ['Temporal', 'Regional'],
+          color: '#6b7280',
+          thresholds: {
+            warning: 70,
+            critical: 85
+          }
+        };
     }
   };
 
+  // Data Processing Functions
+  const processTransactions = (rawData: any[]): ProcessedTransaction[] => {
+    // The data should already be mapped to our standard field names by DataContext
+    const processed = rawData
+      .filter(entry => {
+        // Access the fields directly since they're already mapped
+        const date = entry.transactionDate;
+        const amount = entry.amount;
+        return date && amount && !isNaN(parseFloat(amount));
+      })
+      .map(entry => {
+        try {
+          const processedEntry = {
+            date: new Date(entry.transactionDate),
+            amount: parseFloat(entry.amount),
+            type: entry.transactionType || 'unknown',
+            approved: entry.approvalStatus?.toLowerCase() === 'approved',
+            region: entry.region
+          };
+          return processedEntry;
+        } catch (error) {
+          console.error('Error processing entry:', error, entry);
+          return null;
+        }
+      })
+      .filter(entry => entry !== null) // Remove any failed entries
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  
+    return processed;
+  };
+
+  const calculateTimeWindowMetrics = (
+    transactions: ProcessedTransaction[],
+    startDate: Date,
+    endDate: Date
+  ): AlignmentMetrics => {
+    const windowTransactions = transactions.filter(
+      tx => tx.date >= startDate && tx.date <= endDate
+    );
+
+    // 1. Calculate temporal patterns
+    const temporalScore = calculateTemporalPatterns(windowTransactions);
+
+    // 2. Calculate regional patterns if region data available
+    const regionalScore = columnMapping.region 
+      ? calculateRegionalPatterns(windowTransactions)
+      : 100; // Default score if no regional data
+
+    // 3. Calculate categorical patterns if type data available
+    const categoricalScore = columnMapping.transactionType
+      ? calculateCategoryPatterns(windowTransactions)
+      : 100; // Default score if no type data
+
+    return {
+      score: (temporalScore + regionalScore + categoricalScore) / 3,
+      factors: {
+        temporal: temporalScore,
+        regional: regionalScore,
+        categorical: categoricalScore
+      }
+    };
+  };
+
+  // Pattern Detection Functions
+  const calculateTemporalPatterns = (transactions: ProcessedTransaction[]): number => {
+    if (transactions.length < 2) return 100;
+  
+    // Group by hour of day and day of week
+    const hourlyDistribution = new Array(24).fill(0);
+    const dailyDistribution = new Array(7).fill(0);
+    
+    transactions.forEach(tx => {
+      hourlyDistribution[tx.date.getHours()]++;
+      dailyDistribution[tx.date.getDay()]++;
+    });
+  
+    // Calculate distribution evenness (higher variance = lower score)
+    const hourlyVariance = calculateVariance(hourlyDistribution);
+    const dailyVariance = calculateVariance(dailyDistribution);
+  
+    // Convert to a 0-100 score (lower variance = higher score)
+    // Add bounds to ensure score stays between 0 and 100
+    const score = Math.max(0, Math.min(100, 100 - (hourlyVariance + dailyVariance)));
+    return score;
+  };
+
+  const calculateRegionalPatterns = (transactions: ProcessedTransaction[]): number => {
+    if (!columnMapping.region) return 100;
+
+    // Group by region
+    const regionalVolumes = transactions.reduce((acc, tx) => {
+      if (tx.region) {
+        acc[tx.region] = (acc[tx.region] || 0) + tx.amount;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Calculate distribution evenness
+    const volumes = Object.values(regionalVolumes);
+    const variance = calculateVariance(volumes);
+
+    // Convert to score (lower variance = higher score)
+    return 100 - (variance * 100);
+  };
+
+  const calculateCategoryPatterns = (transactions: ProcessedTransaction[]): number => {
+    if (!columnMapping.transactionType) return 100;
+
+    // Group by type
+    const typeVolumes = transactions.reduce((acc, tx) => {
+      acc[tx.type] = (acc[tx.type] || 0) + tx.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Calculate distribution evenness
+    const volumes = Object.values(typeVolumes);
+    const variance = calculateVariance(volumes);
+
+    // Convert to score (lower variance = higher score)
+    return 100 - (variance * 100);
+  };
+
+  // Utility Functions
+  const calculateVariance = (numbers: number[]): number => {
+    if (numbers.length === 0) return 0;
+    
+    // Remove zeros to avoid skewing the variance
+    const nonZeroNumbers = numbers.filter(n => n > 0);
+    if (nonZeroNumbers.length === 0) return 0;
+    
+    const mean = nonZeroNumbers.reduce((a, b) => a + b, 0) / nonZeroNumbers.length;
+    if (mean === 0) return 0;
+    
+    const variance = nonZeroNumbers.reduce((sum, n) => sum + Math.pow((n - mean) / mean, 2), 0) / nonZeroNumbers.length;
+    
+    // Return normalized variance between 0 and 1
+    return Math.min(1, variance);
+  };
+
+  // Event Detection and Analysis
+  const detectEvents = (transactions: ProcessedTransaction[]): AlignmentEvent[] => {
+    if (transactions.length < detectionRules.sensitivity * 2) return [];
+  
+    const events: AlignmentEvent[] = [];
+    const windowSize = getTimeWindowSize(timeRange); // Use timeRange instead
+    let currentWindow: ProcessedTransaction[] = [];
+    let eventStart: Date | null = null;
+  
+    // Adjust sensitivity based on time range
+    const adjustedSensitivity = Math.ceil(detectionRules.sensitivity * 
+      (timeRange === 'week' ? 1 : 
+       timeRange === 'month' ? 4 : 
+       12)); // More data points needed for longer ranges
+  
+    // Sliding window analysis
+    for (let i = 0; i < transactions.length; i++) {
+      const tx = transactions[i];
+      currentWindow = currentWindow.filter(t => 
+        tx.date.getTime() - t.date.getTime() <= windowSize
+      );
+      currentWindow.push(tx);
+  
+      if (currentWindow.length < adjustedSensitivity) continue;
+  
+      const metrics = calculateTimeWindowMetrics(
+        currentWindow,
+        currentWindow[0].date,
+        currentWindow[currentWindow.length - 1].date
+      );
+  
+      // Detect significant pattern changes
+      const isSignificant = metrics.score < detectionRules.threshold;
+      
+      if (isSignificant && !eventStart) {
+        eventStart = tx.date;
+      } else if (!isSignificant && eventStart) {
+        // Event ended, calculate metrics
+        const eventTransactions = transactions.filter(t => 
+          t.date >= eventStart! && t.date <= tx.date
+        );
+        
+        // Calculate before/during/after metrics using the same time range window
+        const beforeStart = new Date(eventStart.getTime() - windowSize);
+        const afterEnd = new Date(tx.date.getTime() + windowSize);
+        
+        const beforeMetrics = calculateTimeWindowMetrics(
+          transactions.filter(t => t.date >= beforeStart && t.date < eventStart!),
+          beforeStart,
+          eventStart!
+        );
+        
+        const duringMetrics = calculateTimeWindowMetrics(
+          eventTransactions,
+          eventStart!,
+          tx.date
+        );
+        
+        const afterMetrics = calculateTimeWindowMetrics(
+          transactions.filter(t => t.date > tx.date && t.date <= afterEnd),
+          tx.date,
+          afterEnd
+        );
+  
+        events.push({
+          id: `event-${events.length + 1}`,
+          startDate: eventStart.toISOString(),
+          endDate: tx.date.toISOString(),
+          type: selectedFocus === 'decision' ? 'decision' : 'pattern',
+          status: tx.date > new Date() ? 'active' : 'past',
+          intensity: Math.abs(100 - duringMetrics.score),
+          metrics: {
+            before: beforeMetrics.score,
+            during: duringMetrics.score,
+            after: afterMetrics.score
+          }
+        });
+  
+        eventStart = null;
+      }
+    }
+  
+    return events;
+  };
+
+  const getTimeWindowSize = (selectedRange: 'week' | 'month' | 'quarter'): number => {
+    switch (selectedRange) {
+      case 'week':
+        return 7 * 24 * 60 * 60 * 1000;  // 7 days
+      case 'month':
+        return 30 * 24 * 60 * 60 * 1000; // 30 days
+      case 'quarter':
+        return 90 * 24 * 60 * 60 * 1000; // 90 days
+      default:
+        return 30 * 24 * 60 * 60 * 1000; // default to month
+    }
+  };
+
+  // Data Processing Effect
   useEffect(() => {
-    processTransactionData();
-  }, [columnMapping, getProcessedData, selectedModels, selectedFocus]);
+    
+    // Check required fields
+    if (!columnMapping.transactionDate || !columnMapping.amount) {
+      console.log('Missing required fields:', { columnMapping });
+      return;
+    }
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="p-6 text-center" style={{ color: customColors?.textColor }}>
-        <p className="text-lg">Processing alignment data...</p>
-        <p className="text-sm opacity-75">Analyzing cultural patterns</p>
-      </div>
-    );
-  }
+    const processedData = getProcessedData();
+    const transactions = processTransactions(processedData);
 
-  // Error state
-  if (error) {
-    return (
-      <div className="p-6 text-center" style={{ color: customColors?.textColor }}>
-        <p className="text-lg text-red-500">Unable to process alignment data</p>
-        <p className="text-sm opacity-75">{error}</p>
-      </div>
-    );
-  }
+    if (!transactions.length) {
+      console.log('No valid transactions after processing');
+      return;
+    }
 
-  // No data state
-  if (!metrics || !timeline.length) {
-    return (
-      <div className="p-6 text-center" style={{ color: customColors?.textColor }}>
-        <p className="text-lg">No alignment data available</p>
-        <p className="text-sm opacity-75">Please check data requirements</p>
-      </div>
-    );
-  }
+    try {
+      // Calculate historical metrics using detection rules window
+      const windowSize = getTimeWindowSize(timeRange);
+      const history: HistoricalEntry[] = [];
+      let currentDate = transactions[0].date;
+      const endDate = transactions[transactions.length - 1].date;  
 
-  // Preview mode render
+      while (currentDate <= endDate) {
+        const windowEnd = new Date(currentDate.getTime() + windowSize);
+        const windowTransactions = transactions.filter(
+          tx => tx.date >= currentDate && tx.date <= windowEnd
+        );
+
+        const metrics = calculateTimeWindowMetrics(
+          windowTransactions,
+          currentDate,
+          windowEnd
+        );
+
+        history.push({
+          timestamp: currentDate.toISOString(),
+          metrics,
+          volume: windowTransactions.reduce((sum, tx) => sum + tx.amount, 0),
+          approvalRate: columnMapping.approvalStatus
+            ? windowTransactions.filter(tx => tx.approved).length / windowTransactions.length
+            : undefined
+        });
+
+        currentDate = new Date(currentDate.getTime() + windowSize);
+      }
+
+      // Detect events
+      const events = detectEvents(transactions);
+
+      // Calculate trend
+      const currentScore = history[history.length - 1].metrics.score;
+      const previousScore = history[history.length - 2]?.metrics.score ?? currentScore;
+      const trend = ((currentScore - previousScore) / previousScore) * 100;
+
+      setAlignmentData({
+        current: history[history.length - 1].metrics,
+        history,
+        events,
+        trend
+      });
+
+    } catch (error) {
+      console.error('Error in processing effect:', error);
+    }
+  }, [columnMapping, getProcessedData, selectedModels, selectedFocus, detectionRules, timeRange]);
+
+  // Chart Configuration
+  const getChartOptions = (isPreview: boolean = false) => {
+    const focusConfig = getFocusConfig();
+    
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: !isPreview
+        },
+        tooltip: {
+          enabled: !isPreview
+        }
+      },
+      scales: {
+        y: {
+          display: !isPreview,
+          beginAtZero: true,
+          max: 100,
+          min: 0,  // Add this to prevent negative values
+          grid: {
+            color: `${customColors?.borderColor}40`
+          }
+        },
+        x: {
+          display: !isPreview,
+          grid: {
+            display: false
+          }
+        }
+      }
+    };
+  };
+
+  // Render Helpers
+  const getMetricColor = (value: number): string => {
+    const config = getFocusConfig();
+    if (value > config.thresholds.critical) return 'text-green-500';
+    if (value > config.thresholds.warning) return 'text-yellow-500';
+    return 'text-red-500';
+  };
+
+  const getEventLabel = (event: AlignmentEvent): string => {
+    const focusConfig = getFocusConfig();
+    const intensity = event.intensity;
+    const metric = focusConfig.primaryMetric;
+    return `${metric} Change (${intensity.toFixed(1)}% deviation)`;
+  };
+
+  // Preview Mode Render
   if (isPreview) {
     return (
       <div className="p-4">
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold">
-            {metrics.score.toFixed(1)}%
+        <div className="flex items-baseline gap-2 mb-2">
+          <span 
+            className={`text-2xl font-bold ${getMetricColor(alignmentData?.current.score ?? 0)}`}
+          >
+            {alignmentData?.current.score.toFixed(1)}%
           </span>
-          <div className="flex items-center gap-1 text-xs">
-            {metrics.trend >= 0 ? (
-              <ArrowUp className="w-3 h-3 text-green-500" />
-            ) : (
-              <ArrowDown className="w-3 h-3 text-red-500" />
-            )}
-            <span>{Math.abs(metrics.trend).toFixed(1)}%</span>
-          </div>
+          {alignmentData?.trend && (
+            <div className={`flex items-center gap-1 text-xs ${getMetricColor(alignmentData.trend)}`}>
+              {alignmentData.trend >= 0 ? (
+                <ArrowUp className="w-3 h-3" />
+              ) : (
+                <ArrowDown className="w-3 h-3" />
+              )}
+              <span>{Math.abs(alignmentData.trend).toFixed(1)}%</span>
+            </div>
+          )}
         </div>
-        <div className="h-16 mt-2">
+
+        <div className="h-16">
           <Line
             data={{
-              labels: timeline.map(t => new Date(t.date).toLocaleDateString()),
+              labels: alignmentData?.history.map(h => 
+                new Date(h.timestamp).toLocaleDateString()
+              ) ?? [],
               datasets: [{
-                label: 'Alignment Score',
-                data: timeline.map(t => t.score),
-                borderColor: customColors?.textColor,
+                label: getFocusConfig().primaryMetric,
+                data: alignmentData?.history.map(h => h.metrics.score) ?? [],
+                borderColor: getFocusConfig().color,
                 tension: 0.4,
                 fill: false
               }]
             }}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: { legend: { display: false } },
-              scales: { x: { display: false }, y: { display: false } }
-            }}
+            options={getChartOptions(true)}
           />
+        </div>
+
+        {alignmentData?.events.some(e => e.status === 'active') && (
+          <div className="mt-2 flex items-center gap-1 text-xs text-green-600">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span>
+              {alignmentData.events.filter(e => e.status === 'active').length} Active Events
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Full Mode Render
+  if (!alignmentData) {
+    return (
+      <div className="p-6 text-center" style={{ color: customColors?.textColor }}>
+        <p className="text-lg">No alignment data available</p>
+        <p className="text-sm opacity-75">Processing data...</p>
+        <div className="mt-4 text-left text-xs opacity-75 font-mono">
+          Debug Info:
+          <pre>
+            {JSON.stringify({
+              hasMapping: !!(columnMapping.transactionDate && columnMapping.amount),
+              dataLength: getProcessedData().length,
+              focus: selectedFocus,
+              rules: detectionRules
+            }, null, 2)}
+          </pre>
         </div>
       </div>
     );
   }
 
-  // Full view render
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-2" style={{ color: customColors?.textColor }}>
-          Cultural Alignment Score
-        </h3>
-        <div className="flex items-baseline gap-4">
-          <span className="text-3xl font-bold" style={{ color: customColors?.textColor }}>
-            {metrics.score.toFixed(1)}%
-          </span>
-          <div className="flex items-center gap-1">
-            {metrics.trend >= 0 ? (
-              <ArrowUp className="w-4 h-4 text-green-500" />
-            ) : (
-              <ArrowDown className="w-4 h-4 text-red-500" />
-            )}
-            <span className="text-sm" style={{ color: customColors?.textColor }}>
-              {Math.abs(metrics.trend).toFixed(1)}% {metrics.trend >= 0 ? 'increase' : 'decrease'}
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h3 className="text-lg font-medium mb-1" style={{ color: customColors?.textColor }}>
+            {getFocusConfig().title}
+          </h3>
+          <div className="flex items-baseline gap-3">
+            <span 
+              className={`text-3xl font-bold ${getMetricColor(alignmentData?.current.score ?? 0)}`}
+            >
+              {alignmentData?.current.score.toFixed(2)}%
             </span>
+            {/* Only show trend if it's non-zero */}
+            {alignmentData?.trend !== 0 && (
+              <div className={`flex items-center gap-1 ${getMetricColor(alignmentData.trend)}`}>
+                {alignmentData.trend >= 0 ? (
+                  <ArrowUp className="w-4 h-4" />
+                ) : (
+                  <ArrowDown className="w-4 h-4" />
+                )}
+                <span className="font-medium">
+                  {Math.abs(alignmentData.trend).toFixed(2)}%
+                </span>
+              </div>
+            )}
           </div>
         </div>
+
+        <select
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value as 'week' | 'month' | 'quarter')}
+          className="px-2 py-1 rounded border text-sm"
+          style={{ 
+            borderColor: customColors?.borderColor,
+            backgroundColor: customColors?.backgroundColor,
+            color: customColors?.textColor
+          }}
+        >
+          <option value="week">Weekly</option>
+          <option value="month">Monthly</option>
+          <option value="quarter">Quarterly</option>
+        </select>
       </div>
 
       <div className="h-64 mb-6">
         <Line
           data={{
-            labels: timeline.map(t => new Date(t.date).toLocaleDateString()),
-            datasets: [{
-              label: 'Alignment Score',
-              data: timeline.map(t => t.score),
-              borderColor: timeline.map(t => 
-                t.isCulturalPeriod ? '#3b82f6' : customColors?.textColor
-              ),
-              tension: 0.4,
-              fill: false
-            }]
+            labels: alignmentData?.history.map(h => 
+              new Date(h.timestamp).toLocaleDateString()
+            ) ?? [],
+            datasets: [
+              {
+                label: getFocusConfig().primaryMetric,
+                data: alignmentData?.history.map(h => h.metrics.score) ?? [],
+                borderColor: getFocusConfig().color,
+                tension: 0.4,
+                fill: false
+              },
+              ...getFocusConfig().secondaryMetrics.map((metric, index) => ({
+                label: metric,
+                data: alignmentData?.history.map(h => 
+                  h.metrics.factors[
+                    Object.keys(h.metrics.factors)[index] as keyof typeof h.metrics.factors
+                  ]
+                ) ?? [],
+                borderColor: `${getFocusConfig().color}80`,
+                borderDash: [5, 5],
+                tension: 0.4,
+                fill: false
+              }))
+            ]
           }}
-          options={{
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100,
-                grid: { color: `${customColors?.borderColor}40` }
-              }
-            }
-          }}
+          options={getChartOptions()}
         />
       </div>
 
-      {showDetails && (
-        <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t" 
-          style={{ borderColor: customColors?.borderColor }}>
+      {(alignmentData && alignmentData.events.length > 0) && (
+        <div className="mt-4 pt-4 border-t" style={{ borderColor: customColors?.borderColor }}>
+          <h4 className="text-sm font-medium mb-3" style={{ color: customColors?.textColor }}>
+            Detected Events
+          </h4>
           <div className="space-y-2">
-            <h4 className="text-sm font-medium" style={{ color: customColors?.textColor }}>
-              Cultural Periods
-            </h4>
-            <p className="text-2xl font-bold" style={{ color: customColors?.textColor }}>
-              {metrics.culturalPeriodScore.toFixed(1)}%
-            </p>
-          </div>
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium" style={{ color: customColors?.textColor }}>
-              Normal Periods
-            </h4>
-            <p className="text-2xl font-bold" style={{ color: customColors?.textColor }}>
-              {metrics.normalPeriodScore.toFixed(1)}%
-            </p>
+            {alignmentData.events.map(event => (
+              <div
+                key={event.id}
+                className="flex items-center gap-2 p-2 rounded"
+                style={{ backgroundColor: `${customColors?.backgroundColor}20` }}
+              >
+                {event.status === 'active' ? (
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                ) : (
+                  <Calendar className="w-4 h-4" />
+                )}
+                <div>
+                <div className="text-sm font-medium" style={{ color: customColors?.textColor }}>
+                    {getEventLabel(event)}
+                  </div>
+                  <div className="text-xs opacity-75" style={{ color: customColors?.textColor }}>
+                    {new Date(event.startDate).toLocaleDateString()} - 
+                    {new Date(event.endDate).toLocaleDateString()}
+                  </div>
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <div className="text-xs">
+                    Impact:
+                    <span className={getMetricColor(event.intensity)}>
+                      {' '}{event.intensity.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -363,4 +695,4 @@ const CulturalAlignmentScore: React.FC<Props> = ({
   );
 };
 
-export default CulturalAlignmentScore;
+export default CulturalAlignmentScore; 

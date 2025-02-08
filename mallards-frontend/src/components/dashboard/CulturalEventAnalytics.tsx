@@ -17,14 +17,13 @@ interface Props {
 const CulturalEventAnalytics: React.FC<Props> = ({ 
   data,
   isPreview = false,
+  isFocused = false,
   focusMode = 'pattern',
   isLoading = false,
   error = null
 }) => {
   const { customColors } = useTheme();
   const [selectedInsight, setSelectedInsight] = useState<EventInsight | null>(null);
-  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
-  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([new Date().getFullYear()]));
 
   if (isLoading) {
     return (
@@ -43,106 +42,51 @@ const CulturalEventAnalytics: React.FC<Props> = ({
     );
   }
 
-  const renderGroupedEvents = () => {
-    // Group by year first, then quarter
-    const groupedByYear = data.insights.reduce((years, event) => {
-      const date = new Date(event.period.start);
-      const year = date.getFullYear();
-      const quarter = Math.floor(date.getMonth() / 3) + 1;
-      
-      if (!years[year]) {
-        years[year] = {
-          quarters: {},
-          totalEvents: 0
+  const getFocusMetrics = (focusMode: string) => {
+    switch (focusMode) {
+      case 'pattern':
+        return {
+          primaryMetric: 'Transaction Volume',
+          secondaryMetric: 'Spending Pattern',
+          trend: 'spending',
+          threshold: 25
         };
-      }
-      
-      if (!years[year].quarters[quarter]) {
-        years[year].quarters[quarter] = [];
-      }
-      
-      years[year].quarters[quarter].push(event);
-      years[year].totalEvents++;
-      
-      return years;
-    }, {} as Record<number, { quarters: Record<number, EventInsight[]>, totalEvents: number }>);
-
-    return Object.entries(groupedByYear)
-      .sort(([yearA], [yearB]) => Number(yearB) - Number(yearA))
-      .map(([year, yearData]) => (
-        <div key={year} className="mb-8">
-          <button
-            className="w-full flex items-center justify-between text-lg font-medium mb-4"
-            onClick={() => setExpandedYears(prev => {
-              const newSet = new Set(prev);
-              if (prev.has(Number(year))) {
-                newSet.delete(Number(year));
-              } else {
-                newSet.add(Number(year));
-              }
-              return newSet;
-            })}
-          >
-            <span>{year} ({yearData.totalEvents} events)</span>
-            <ArrowRight className={`w-5 h-5 transform transition-transform ${
-              expandedYears.has(Number(year)) ? 'rotate-90' : ''
-            }`} />
-          </button>
-
-          {expandedYears.has(Number(year)) && (
-            <div className="space-y-6 pl-4">
-              {Object.entries(yearData.quarters)
-                .sort(([qA], [qB]) => Number(qB) - Number(qA))
-                .map(([quarter, events]) => (
-                  <div key={`${year}-Q${quarter}`} className="border-l-2 pl-4" style={{ borderColor: customColors?.borderColor }}>
-                    <h4 className="text-sm font-medium mb-3" style={{ color: customColors?.textColor }}>
-                      Q{quarter} {year} ({events.length} events)
-                    </h4>
-                    <div className="space-y-4">
-                      {events
-                        .sort((a, b) => Math.abs(b.metrics.averageIncrease) - Math.abs(a.metrics.averageIncrease))
-                        .slice(0, expandedMonths.has(`${year}-Q${quarter}`) ? undefined : 3)
-                        .map(event => renderInsightCard(event))}
-                      {events.length > 3 && (
-                        <button 
-                          className="text-sm text-blue-500 hover:underline w-full text-center py-2"
-                          onClick={() => setExpandedMonths(prev => {
-                            const newSet = new Set(prev);
-                            if (prev.has(`${year}-Q${quarter}`)) {
-                              newSet.delete(`${year}-Q${quarter}`);
-                            } else {
-                              newSet.add(`${year}-Q${quarter}`);
-                            }
-                            return newSet;
-                          })}
-                        >
-                          {expandedMonths.has(`${year}-Q${quarter}`) 
-                            ? '← Show less' 
-                            : `Show ${events.length - 3} more events →`}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      ));
+      case 'decision':
+        return {
+          primaryMetric: 'Approval Rate',
+          secondaryMetric: 'Decision Volume',
+          trend: 'approvals',
+          threshold: 15
+        };
+      case 'bias':
+        return {
+          primaryMetric: 'Fairness Score',
+          secondaryMetric: 'Regional Distribution',
+          trend: 'bias',
+          threshold: 20
+        };
+      default:
+        return {
+          primaryMetric: 'Event Impact',
+          secondaryMetric: 'Pattern Strength',
+          trend: 'general',
+          threshold: 20
+        };
+    }
   };
 
   const renderLineChart = () => {
+    const metrics = getFocusMetrics(focusMode);
     
     // Find where forecast begins
     const forecastStartIndex = data.timelineData.findIndex(d => d.forecast !== undefined);
     
     const chartData: ChartData<'line'> = {
       labels: data.timelineData.map(d => new Date(d.timestamp).toLocaleDateString()),
-      // Historical Values with dynamic label
       datasets: [
+        // Historical Values
         {
-          label: focusMode === 'pattern' ? 'Transaction Volume' :
-          focusMode === 'decision' ? 'Approval Rate' :
-          'Bias Score',
+          label: 'Historical Data',
           data: data.timelineData.map((d, i) => 
             i < forecastStartIndex ? d.value : null
           ),
@@ -260,60 +204,36 @@ const CulturalEventAnalytics: React.FC<Props> = ({
   // Preview version remains mostly the same but with forecast data
   if (isPreview) {
     return (
-      <div className="p-4 flex flex-col h-full">
-        {/* Enhanced Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-blue-500" />
-            <span className="font-medium text-base">
-              {focusMode === 'pattern' ? 'Volume Patterns' :
-              focusMode === 'decision' ? 'Decision Patterns' :
-              'Bias Patterns'}
+      <div className="p-4">
+        <div className="flex items-center justify-between text-xs mb-3">
+          <span className="flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {data.summary.totalEvents} Events
+          </span>
+          <span className="flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" />
+            {data.summary.averageImpact}% Impact
+          </span>
+          {data.summary.forecastConfidence && (
+            <span className="flex items-center gap-1">
+              <Brain className="w-3 h-3" />
+              {data.summary.forecastConfidence}% Confidence
             </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1">
-              <TrendingUp className="w-4 h-4 text-gray-500" />
-              <span className={`text-sm ${data.summary.averageImpact > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {data.summary.averageImpact > 0 ? '+' : ''}{data.summary.averageImpact.toFixed(1)}% Impact
-              </span>
-            </div>
-            {data.summary.forecastConfidence && (
-              <div className="flex items-center gap-1">
-                <Brain className="w-4 h-4 text-indigo-500" />
-                <span className="text-sm text-indigo-500">
-                  {data.summary.forecastConfidence}% Confidence
-                </span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-  
-        {/* Enhanced Chart */}
-        <div className="flex-1 min-h-[140px]">
+
+        <div className="h-[120px]">
           <Line
             data={{
               labels: data.timelineData.map(d => new Date(d.timestamp).toLocaleDateString()),
               datasets: [
                 {
-                  label: 'Historical',
-                  data: data.timelineData.map((d, i) => 
-                    d.forecast ? null : d.value
-                  ),
+                  label: 'Value',
+                  data: data.timelineData.map(d => d.value || d.eventValue),
                   borderColor: 'rgba(59, 130, 246, 0.8)',
                   backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                  fill: false,
-                  tension: 0.4,
-                  pointRadius: 0
-                },
-                {
-                  label: 'Forecast',
-                  data: data.timelineData.map((d) => d.forecast || null),
-                  borderColor: 'rgba(99, 102, 241, 0.8)',
-                  borderDash: [5, 5],
-                  fill: false,
-                  tension: 0.4,
-                  pointRadius: 0
+                  fill: true,
+                  tension: 0.4
                 }
               ]
             }}
@@ -325,41 +245,65 @@ const CulturalEventAnalytics: React.FC<Props> = ({
               },
               scales: {
                 x: { display: false },
-                y: { 
-                  display: true,
-                  grid: {
-                    color: 'rgba(0,0,0,0.05)',
-                    display: false
-                  },
-                  ticks: {
-                    display: false
-                  }
-                }
+                y: { display: false, beginAtZero: true }
               }
             }}
           />
         </div>
-  
-        {/* Latest Event Preview */}
+
         {data.insights[0] && (
-          <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-100">
-            <div className="flex justify-between items-center mb-1">
-              <span className="font-medium text-sm">{data.insights[0].eventName}</span>
-              <span className={`text-sm font-medium ${
-                data.insights[0].metrics.averageIncrease > 0 ? 'text-green-500' : 'text-red-500'
-              }`}>
-                {data.insights[0].metrics.averageIncrease > 0 ? '+' : ''}
-                {data.insights[0].metrics.averageIncrease.toFixed(1)}%
-              </span>
-            </div>
-            <div className="text-xs text-gray-500">
-              {new Date(data.insights[0].period.start).toLocaleDateString()} - {new Date(data.insights[0].period.end).toLocaleDateString()}
+          <div className="mt-2 text-xs">
+            <div className="font-medium">{data.insights[0].eventName}</div>
+            <div className="text-blue-500">
+              {data.insights[0].metrics.averageIncrease > 0 ? '+' : ''}
+              {data.insights[0].metrics.averageIncrease}% Impact
             </div>
           </div>
         )}
       </div>
     );
   }
+
+  const renderAILearningMetrics = (insight: EventInsight) => (
+    <div className="mt-4 grid grid-cols-2 gap-4">
+      <div className="p-3 rounded bg-opacity-10" style={{ backgroundColor: customColors?.backgroundColor }}>
+        <div className="text-xs opacity-75">Pattern Recognition</div>
+        <div className="font-medium">{insight.metrics.patternConfidence || 0}%</div>
+        <div className="w-full h-1 mt-1 rounded-full bg-gray-200">
+          <div 
+            className="h-full rounded-full bg-blue-500"
+            style={{ width: `${insight.metrics.patternConfidence || 0}%` }}
+          />
+        </div>
+      </div>
+      <div className="p-3 rounded bg-opacity-10" style={{ backgroundColor: customColors?.backgroundColor }}>
+        <div className="text-xs opacity-75">Adaptation Progress</div>
+        <div className="font-medium">{insight.metrics.adaptationProgress || 0}%</div>
+        <div className="w-full h-1 mt-1 rounded-full bg-gray-200">
+          <div 
+            className="h-full rounded-full bg-green-500"
+            style={{ width: `${insight.metrics.adaptationProgress || 0}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPredictions = (insight: EventInsight) => (
+    <div className="mt-6">
+      <h4 className="text-sm font-medium mb-2">Future Predictions</h4>
+      <div className="space-y-2">
+        {insight.predictions?.map((prediction, index) => (
+          <div key={index} className="flex items-center justify-between text-sm">
+            <span>{prediction.date}</span>
+            <span className={prediction.trend === 'up' ? 'text-green-500' : 'text-red-500'}>
+              {prediction.value}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   const renderInsightCard = (insight: EventInsight) => (
     <div
@@ -386,37 +330,17 @@ const CulturalEventAnalytics: React.FC<Props> = ({
           </div>
         </div>
         <div className="text-sm font-medium text-blue-500">
-            {(() => {
-              let value: number | undefined;
-              
-              switch (focusMode) {
-                case 'pattern':
-                  value = insight.metrics.volumeChange ?? insight.metrics.averageIncrease;
-                  break;
-                case 'decision':
-                  value = insight.metrics.approvalChange ?? insight.metrics.averageIncrease;
-                  break;
-                case 'bias':
-                  value = insight.metrics.biasReduction ?? insight.metrics.averageIncrease;
-                  break;
-                default:
-                  value = insight.metrics.averageIncrease;
-              }
-
-              return value !== undefined ? 
-                `${value > 0 ? '+' : ''}${value.toFixed(1)}%` : 
-                'N/A';
-            })()}
+          {insight.metrics.averageIncrease > 0 ? '+' : ''}{insight.metrics.averageIncrease}%
         </div>
       </div>
-        
+
       <div className="space-y-2 mt-4">
         {insight.patterns.map((pattern, index) => (
           <div key={index} className="flex items-center justify-between text-sm">
             <span className="capitalize">{pattern.phase}</span>
             <div className="flex items-center gap-2">
               <span className={pattern.change > 0 ? 'text-green-500' : 'text-red-500'}>
-                {pattern.change > 0 ? '+' : ''}{pattern.change.toFixed(1)}%
+                {pattern.change > 0 ? '+' : ''}{pattern.change}%
               </span>
               <span className={
                 pattern.trend === 'increasing' ? 'text-green-500' :
@@ -424,48 +348,107 @@ const CulturalEventAnalytics: React.FC<Props> = ({
                 'text-gray-500'
               }>
                 {pattern.trend === 'increasing' ? '↑' :
-                pattern.trend === 'decreasing' ? '↓' : '→'}
+                 pattern.trend === 'decreasing' ? '↓' : '→'}
               </span>
             </div>
           </div>
         ))}
       </div>
-        
-      {/* Show recommendations inline when selected */}
-      {selectedInsight?.id === insight.id && (
-        <div className="mt-4 pt-4 border-t" style={{ borderColor: customColors?.borderColor }}>
-          <div className="text-sm font-medium mb-2">Recommendations</div>
-          <div className="space-y-2">
-            {insight.recommendations.map((rec, index) => (
-              <div key={index} className="flex items-start gap-2 text-sm">
-                <ArrowRight className="w-4 h-4 mt-1 text-blue-500" />
-                <span>{rec}</span>
-              </div>
-            ))}
+
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="p-3 rounded bg-opacity-10" style={{ backgroundColor: customColors?.backgroundColor }}>
+          <div className="text-xs opacity-75">Pattern Recognition</div>
+          <div className="font-medium">{insight.metrics.patternConfidence || 0}%</div>
+          <div className="w-full h-1 mt-1 rounded-full bg-gray-200">
+            <div 
+              className="h-full rounded-full bg-blue-500"
+              style={{ width: `${insight.metrics.patternConfidence || 0}%` }}
+            />
           </div>
         </div>
-      )}
+        <div className="p-3 rounded bg-opacity-10" style={{ backgroundColor: customColors?.backgroundColor }}>
+          <div className="text-xs opacity-75">AI Adaptation</div>
+          <div className="font-medium">{insight.metrics.adaptationProgress || 0}%</div>
+          <div className="w-full h-1 mt-1 rounded-full bg-gray-200">
+            <div 
+              className="h-full rounded-full bg-green-500"
+              style={{ width: `${insight.metrics.adaptationProgress || 0}%` }}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 
+  if (isPreview) {
+    // Simplified preview version
+    return (
+      <div className="p-4">
+        {/* Key metrics */}
+        <div className="flex items-center justify-between text-xs mb-3">
+          <span className="flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {data.summary.totalEvents} Events
+          </span>
+          <span className="flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" />
+            {data.summary.averageImpact}% Impact
+          </span>
+        </div>
+
+        {/* Mini chart */}
+        <div className="h-[120px]">
+          <Line
+            data={{
+              labels: data.timelineData.map(d => new Date(d.timestamp).toLocaleDateString()),
+              datasets: [
+                {
+                  label: 'Event Period',
+                  data: data.timelineData.map(d => d.value),
+                  borderColor: 'rgba(59, 130, 246, 0.8)',
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  fill: true,
+                  tension: 0.4
+                }
+              ]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false }
+              },
+              scales: {
+                x: {
+                  display: false
+                },
+                y: {
+                  display: false,
+                  beginAtZero: true
+                }
+              }
+            }}
+          />
+        </div>
+
+        {/* Most recent insight preview */}
+        {data.insights[0] && (
+          <div className="mt-2 text-xs">
+            <div className="font-medium">{data.insights[0].eventName}</div>
+            <div className="text-blue-500">
+              {data.insights[0].metrics.averageIncrease > 0 ? '+' : ''}
+              {data.insights[0].metrics.averageIncrease}% Impact
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Full version with all insight components remaining the same
   return (
-    <div className="p-6 overflow-y-auto max-h-[calc(100vh-100px)]"> {/* Add overflow and max height */}
-      {/* Summary Metrics */}
+    <div className="p-6">
       <div className="flex items-center gap-4 text-sm mb-6">
-        <span className="flex items-center gap-1">
-          <Calendar className="w-4 h-4" />
-          {data.summary.totalEvents} {
-            focusMode === 'pattern' ? 'Volume Events' :
-            focusMode === 'decision' ? 'Decision Events' :
-            'Bias Events'
-          }
-        </span>
-        <span className="flex items-center gap-1">
-          <TrendingUp className="w-4 h-4" />
-          {focusMode === 'pattern' ? 'Volume Impact' :
-          focusMode === 'decision' ? 'Decision Impact' :
-          'Bias Reduction'}: {data.summary.averageImpact}%
-        </span>
         <span className="flex items-center gap-1">
           <Calendar className="w-4 h-4" />
           {data.summary.totalEvents} Events
@@ -486,16 +469,47 @@ const CulturalEventAnalytics: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Chart */}
       {renderLineChart()}
 
-      {/* Grouped Events */}
-      <div className="mt-6">
-        <h4 className="text-sm font-medium mb-4" style={{ color: customColors?.textColor }}>
+      <div className="mt-6 grid gap-4">
+        <h4 className="text-sm font-medium" style={{ color: customColors?.textColor }}>
           Event Insights
         </h4>
-        {renderGroupedEvents()}
+        <div className="space-y-4">
+          {data.insights.map(renderInsightCard)}
+        </div>
       </div>
+
+      {selectedInsight && (
+  <>
+    {/* Existing recommendations section */}
+    <div className="mt-6 pt-6 border-t" style={{ borderColor: customColors?.borderColor }}>
+      <h4 className="text-sm font-medium mb-4" style={{ color: customColors?.textColor }}>
+        Recommendations
+      </h4>
+      <div className="space-y-2">
+        {selectedInsight.recommendations.map((rec, index) => (
+          <div key={index} className="flex items-start gap-2 text-sm">
+            <ArrowRight className="w-4 h-4 mt-1 text-blue-500" />
+            <span>{rec}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+    
+    {/* Add AI Learning Metrics */}
+    <div className="mt-6 pt-6 border-t" style={{ borderColor: customColors?.borderColor }}>
+      {renderAILearningMetrics(selectedInsight)}
+    </div>
+    
+    {/* Add Predictions */}
+    {selectedInsight.predictions && selectedInsight.predictions.length > 0 && (
+      <div className="mt-6 pt-6 border-t" style={{ borderColor: customColors?.borderColor }}>
+        {renderPredictions(selectedInsight)}
+      </div>
+    )}
+  </>
+)}
     </div>
   );
 };

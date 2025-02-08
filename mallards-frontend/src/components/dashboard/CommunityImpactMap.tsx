@@ -160,6 +160,7 @@ const getHeatmapColor = (region: RegionData, focusMode: string) => {
   }
 };
 
+// Add default region data
 const defaultRegionData = {
   metrics: {
     approvalRate: 0,
@@ -174,7 +175,6 @@ const CommunityImpactMap: React.FC<Props> = ({
   isFocused = false,
   focusMode = 'pattern'
 }) => {
-
   const { customColors } = useTheme();
   const globeRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<'heatmap' | 'bubble'>('heatmap');
@@ -184,10 +184,9 @@ const CommunityImpactMap: React.FC<Props> = ({
   const [bubbleMetric, setBubbleMetric] = useState<'totalDecisions' | 'transactionVolume'>('totalDecisions');
 
   useEffect(() => {
-    // 1. Cleanup previous instance and early return if no ref
     if (!globeRef.current) return;
-  
-    // 2. Create globe instance
+
+    // Initialize globe with all configurations
     const globe = new Globe(globeRef.current)
       .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
       .width(globeRef.current.clientWidth)
@@ -195,38 +194,34 @@ const CommunityImpactMap: React.FC<Props> = ({
       .enablePointerInteraction(true)
       .polygonAltitude(0.01)
       .polygonsTransitionDuration(300);
-  
-    // 3. Load world data and setup visualization
+
+    // Load and apply data
     fetch('https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson')
       .then(res => res.json())
       .then(worldData => {
-        // Filter out Antarctica
         const countries = worldData.features.filter((d: any) => d.properties.ISO_A3 !== 'ATA');
         
-  
-        // Handle visualization based on mode
         if (viewMode === 'heatmap') {
-          // Filter countries to match our regions
           const filteredCountries = countries.filter((d: any) => {
             const region = data.regions.find(r => r.code === d.properties.ISO_A3);
-            return region && 
-              (!selectedRegion || region.code === selectedRegion) &&
-              (!selectedCulturalRegion || region.culturalFactors.some(f => f.name === selectedCulturalRegion));
+            if (!region) return false;
+            if (selectedRegion && region.code !== selectedRegion) return false;
+            if (selectedCulturalRegion && !region.culturalFactors.some(f => f.name === selectedCulturalRegion)) return false;
+            return true;
           });
-  
-          // Apply visualization
+
           globe
             .polygonsData(filteredCountries)
             .polygonsTransitionDuration(200)
             .polygonCapColor((d: any) => {
-              const region = data.regions.find(r => r.code === d.properties.ISO_A3);
-              if (!region?.metrics) return colorScales.spending.default;
+              const region = data.regions.find(r => r.code === d.properties.ISO_A3) || defaultRegionData;
+              if (!region.metrics) return colorScales.spending.default;
+              
               return getHeatmapColor(region as RegionData, focusMode);
             })
             .polygonSideColor(() => 'rgba(0, 100, 0, 0.15)')
             .polygonStrokeColor(() => '#111')
-            // Add hover functionality
-            .onPolygonHover(throttle((polygon: object | null) => {
+            .onPolygonHover(throttle((polygon: object | null, prevPolygon: object | null) => {
               document.body.style.cursor = polygon ? 'pointer' : 'default';
               const region = data.regions.find(r => r.code === (polygon as any)?.properties?.ISO_A3);
               
@@ -240,30 +235,14 @@ const CommunityImpactMap: React.FC<Props> = ({
               
               if (polygon && region && region.metrics) {
                 const metrics = getMetricsByFocus(focusMode, region as RegionData);
-                const processedData = processRegionalData(region, focusMode);
-                
                 const content = `
                   <div class="bg-white p-2 rounded shadow-lg">
-                    <div class="font-bold mb-2">${region.name}</div>
-                    <div class="mb-2">${metrics.label}: ${metrics.format(metrics.value)}</div>
-                    <div class="text-sm">
-                      <div>Approval Rate: ${region.metrics.approvalRate.toFixed(1)}%</div>
-                      <div>Cultural Impact: ${region.metrics.culturalImpact.toFixed(1)}%</div>
-                      <div>Total Decisions: ${region.metrics.totalDecisions.toLocaleString()}</div>
-                      <div>Transaction Volume: $${(region.metrics.transactionVolume / 1000000).toFixed(1)}M</div>
-                    </div>
-                    <div class="mt-2 text-sm font-semibold">Cultural Factors:</div>
+                    <div class="font-bold">${region.name}</div>
+                    <div>${metrics.label}: ${metrics.format(metrics.value)}</div>
+                    <div>Cultural Factors:</div>
                     ${region.culturalFactors.map(f => 
-                      `<div class="text-sm flex justify-between gap-4">
-                        <span>${f.name}</span>
-                        <span>${f.influence.toFixed(1)}% (${f.trend})</span>
-                      </div>`
+                      `<div class="text-sm">${f.name}: ${f.influence}% (${f.trend})</div>`
                     ).join('')}
-                    ${focusMode === 'bias' && isFairnessData(processedData) ? `
-                      <div class="mt-2 text-sm text-red-500">
-                        ${processedData.recommendations.join('<br>')}
-                      </div>
-                    ` : ''}
                   </div>
                 `;
                 
@@ -277,27 +256,44 @@ const CommunityImpactMap: React.FC<Props> = ({
                 globeRef.current?.appendChild(newTooltip);
               }
             }, 100));
-  
+
+          // Add mouse move handler
+          globe.controls().addEventListener('change', () => {
+            globe.renderer().render(globe.scene(), globe.camera());
+          });
         } else {
-          // Bubble view
-          const pointsData = data.regions.map(region => ({
-            ...region,
-            size: bubbleMetric === 'totalDecisions' 
-              ? Math.sqrt(region.metrics.totalDecisions) * 0.2
-              : Math.sqrt(region.metrics.transactionVolume) * 0.1,
-            color: colorScales[focusMode === 'pattern' ? 'spending' : focusMode].high,
-            lat: region.coordinates.lat,
-            lng: region.coordinates.lng,
-            altitude: 0.1,
-            radius: Math.max(
-              bubbleMetric === 'totalDecisions' 
-                ? Math.sqrt(region.metrics.totalDecisions) * 0.2
-                : Math.sqrt(region.metrics.transactionVolume) * 0.1,
-              2
-            )
-          }));
-  
           // Clear polygons and add points
+          const filteredRegions = data.regions.filter(r => {
+            console.log('Processing region:', r);
+            if (selectedRegion && r.code !== selectedRegion) return false;
+            if (selectedCulturalRegion && !r.culturalFactors.some(f => f.name === selectedCulturalRegion)) return false;
+            return true;
+          });
+        
+          console.log('Filtered Regions:', filteredRegions);
+        
+          // Prepare points data with all required properties
+          // Prepare points data with all required properties
+const pointsData = filteredRegions.map(region => {
+  const mode = focusMode === 'pattern' ? 'spending' : focusMode;
+  return {
+    ...region,
+    size: bubbleMetric === 'totalDecisions' 
+      ? Math.sqrt(region.metrics.totalDecisions) * 0.2
+      : Math.sqrt(region.metrics.transactionVolume) * 0.1,
+    color: colorScales[mode as keyof typeof colorScales].high,
+    lat: region.coordinates.lat,
+    lng: region.coordinates.lng,
+    altitude: 0.1,
+    radius: Math.max(
+      bubbleMetric === 'totalDecisions' 
+        ? Math.sqrt(region.metrics.totalDecisions) * 0.2
+        : Math.sqrt(region.metrics.transactionVolume) * 0.1,
+      2
+    )
+  };
+});
+        
           globe
             .polygonsData([])
             .pointsData(pointsData)
@@ -307,59 +303,38 @@ const CommunityImpactMap: React.FC<Props> = ({
             .pointRadius('radius')
             .pointColor('color')
             .pointsMerge(false)
-            .pointLabel((d: any) => {
-              const metrics = getMetricsByFocus(focusMode, d as RegionData);
-              const processedData = processRegionalData(d as RegionData, focusMode);
-              
-              return `
-                <div class="bg-white p-2 rounded shadow-lg">
-                  <div class="font-bold mb-2">${d.name}</div>
-                  <div class="mb-2">${metrics.label}: ${metrics.format(metrics.value)}</div>
-                  <div class="text-sm">
-                    <div>Approval Rate: ${d.metrics.approvalRate.toFixed(1)}%</div>
-                    <div>Cultural Impact: ${d.metrics.culturalImpact.toFixed(1)}%</div>
-                    <div>Total Decisions: ${d.metrics.totalDecisions.toLocaleString()}</div>
-                    <div>Transaction Volume: $${(d.metrics.transactionVolume / 1000000).toFixed(1)}M</div>
-                  </div>
-                  <div class="mt-2 text-sm font-semibold">Cultural Factors:</div>
-                  ${d.culturalFactors.map((f: any) => 
-                    `<div class="text-sm flex justify-between gap-4">
-                      <span>${f.name}</span>
-                      <span>${f.influence.toFixed(1)}% (${f.trend})</span>
-                    </div>`
-                  ).join('')}
-                  ${focusMode === 'bias' && isFairnessData(processedData) ? `
-                    <div class="mt-2 text-sm text-red-500">
-                      ${processedData.recommendations.join('<br>')}
-                    </div>
-                  ` : ''}
-                </div>
-              `;
-            });
+            .pointLabel((d: any) => `
+              <div class="bg-white p-2 rounded shadow-lg">
+                <div class="font-bold">${d.name}</div>
+                <div>Approval Rate: ${d.metrics.approvalRate.toFixed(1)}%</div>
+                <div>Cultural Impact: ${d.metrics.culturalImpact.toFixed(1)}%</div>
+                <div>Total Decisions: ${d.metrics.totalDecisions.toLocaleString()}</div>
+                <div>Transaction Volume: $${(d.metrics.transactionVolume / 1000000).toFixed(1)}M</div>
+                <div class="mt-2 text-sm font-semibold">Cultural Factors:</div>
+                ${d.culturalFactors.map((f: any) => 
+                  `<div class="text-sm">
+                    ${f.name}: ${f.influence}% (${f.trend})
+                  </div>`
+                ).join('')}
+              </div>
+            `);
         }
-
-        // Add mouse move handler for smooth rendering
-        globe.controls().addEventListener('change', () => {
-          globe.renderer().render(globe.scene(), globe.camera());
-        });
-  
-        // Set initial view position
-        globe.pointOfView({ lat: 30, lng: 0, altitude: 2.5 });
-  
-        // Start render loop
+        // Set initial position
+        globe.pointOfView({ lat: 0, lng: 0, altitude: 1.5 });
+        
+        // Start animation loop
+        let frameId: number;
         const animate = () => {
           globe.renderer().render(globe.scene(), globe.camera());
-          return requestAnimationFrame(animate);
+          frameId = requestAnimationFrame(animate);
         };
-        const frameId = animate();
-  
-        // Cleanup animation on unmount
+        animate();
+
         return () => {
           cancelAnimationFrame(frameId);
         };
       });
-  
-    // Cleanup function
+
     return () => {
       if (globeRef.current) {
         globeRef.current.innerHTML = '';
@@ -379,6 +354,7 @@ const CommunityImpactMap: React.FC<Props> = ({
     const calculator = calculateMetrics[mode as keyof typeof calculateMetrics];
     return calculator(region);
   };
+
 
   // Update the legend
   const getLegendItems = () => {
