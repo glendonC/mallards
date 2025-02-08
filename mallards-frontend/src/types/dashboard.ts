@@ -65,6 +65,7 @@ export interface CulturalFactor {
   color: string;
 }
 
+// Active Cultural Periods
 export interface CulturalPeriod {
   id: string;
   name: string;
@@ -87,18 +88,25 @@ export interface CulturalPeriod {
     expectedChange: number;
     riskLevel: 'low' | 'medium' | 'high';
   }[];
+  aiGenerated?: boolean;
 }
 
 export interface CulturalPeriodsData {
   active: CulturalPeriod[];
   upcoming: CulturalPeriod[];
   recentlyEnded: CulturalPeriod[];
+  historical: {  // ✅ Add this to match `PeriodData`
+    spending: number[];
+    approvals: number[];
+    dates: string[];
+  };
   impactMetrics: {
     totalEvents: number;
     highImpact: number;
     averageChange: number;
   };
 }
+
 
 export interface CulturalDecisionMetric {
   culturalGroup: string;
@@ -126,35 +134,6 @@ export interface DecisionImpactData {
   };
   byGroup: CulturalDecisionMetric[];
   timeRange: string;
-}
-
-export interface ViolationEvent {
-  id: string;
-  timestamp: string;
-  severity: 'critical' | 'warning' | 'info';
-  culturalContext: string;
-  description: string;
-  impact: number;
-}
-
-export interface PatternViolationData {
-  timeline: {
-    timestamp: string;
-    value: number;
-    threshold: number;
-  }[];
-  violations: ViolationEvent[];
-  summary: {
-    critical: number;
-    warning: number;
-    info: number;
-    trendDirection: 'increasing' | 'decreasing' | 'stable';
-    peakPeriods: {
-      start: string;
-      end: string;
-      intensity: number;
-    }[];
-  };
 }
 
 export interface RegionData {
@@ -277,3 +256,10 @@ export interface DashboardData {
   activePeriods: CulturalPeriodsData;
   eventAnalytics: CulturalEventAnalyticsData;
 } 
+
+export type AnalyzableComponent = {
+  id: string;
+  title: string;
+  type: 'cultural-alignment' | 'cultural-periods' | 'decision-impact' | 'pattern-alerts' | 'community-impact' | 'event-analytics';
+  data: AlignmentScore | CulturalPeriodsData | CulturalDecisionData | CommunityImpactData | CulturalEventAnalyticsData;
+};
