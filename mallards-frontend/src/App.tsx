@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import Anomalies from './pages/Anomalies';
 import PredictiveInsights from './pages/PredictiveInsights';
 import ModelSelection from './pages/ModelSelection';
+import SimulationSandbox from './pages/SimulationSandbox';
 import "./styles/global.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 
@@ -27,6 +28,7 @@ const App: React.FC = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/anomalies" element={<Anomalies />} />
             <Route path="/predictive" element={<PredictiveInsights />} />
+            <Route path="/simulation" element={<SimulationSandbox />} />
           </Routes>
         </BrowserRouter>
       </DataProvider>
