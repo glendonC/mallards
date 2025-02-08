@@ -45,13 +45,13 @@
 .hero-header h2 {
   font-size: 32px;
   font-weight: bold;
-  color: #fff;
+  color: #333333;
   margin-bottom: 1rem;
 }
 
 .hero-header p {
   font-size: 18px;
-  color: #d1d5db;
+  color: #333333;
   margin-bottom: 2rem;
 }
 
