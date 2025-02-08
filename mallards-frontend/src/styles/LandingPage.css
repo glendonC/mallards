@@ -1,0 +1,113 @@
+/* Main Container */
+.landing-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: linear-gradient(to right, #1e293b, #0f172a);
+}
+  
+/* Spline */
+.spline-animation {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 0;
+}
+  
+/* Live Clock */
+.live-clock {
+    position: absolute;
+    top: 2em;
+    left: 2em;
+    z-index: 100000;
+}
+
+.live-clock p {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--dark-text-tertiary);
+}
+
+/* Header Content */
+.hero-header {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 100000;
+}
+
+.hero-header h2 {
+    font-size: 32px;
+    font-weight: bold;
+    color: #333333;
+    margin-bottom: 1rem;
+}
+
+.hero-header p {
+    font-size: 18px;
+    color: #333333;
+    margin-bottom: 2rem;
+}
+  
+  /* Button */
+  .auth-btn {
+    width: 200px;
+    height: 50px;
+    border: none;
+    outline: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    background: var(--auth-accent-darker, #d97706);
+    color: var(--auth-text, #fff);
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
+    transition: color 0.3s ease, transform 0.3s ease;
+    z-index: 1;
+  }
+  
+  .auth-btn::before {
+    content: "";
+    position: absolute;
+    left: -100%;
+    top: 0;
+    height: 100%;
+    width: 100%;
+    background-color: #fbbf24;
+    transition: left 0.3s ease;
+    border-radius: 4px;
+    z-index: -1;
+  }
+  
+  .auth-btn:hover::before {
+    left: 0;
+  }
+  
+  .auth-btn:hover {
+    color: #000;
+    transform: scale(1.05);
+    box-shadow: 0 0 5px #fbbf24, 0 0 25px #fbbf24, 0 0 50px #fbbf24, 0 0 100px #fbbf24;
+  }
+  
+  @media (max-width: 900px) {
+    .hero-header h2 {
+      font-size: 28px;
+    }
+  
+    .hero-header p {
+      font-size: 16px;
+    }
+  
+    .auth-btn {
+      width: 180px;
+      height: 45px;
+      font-size: 14px;
+    }
+}
