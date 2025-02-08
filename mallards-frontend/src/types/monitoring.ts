@@ -74,7 +74,7 @@ export const MONITORING_CONFIGS: Record<MonitoringFocusType, MonitoringFocusConf
     title: 'Cultural Decision Impact',
     description: 'Track how AI decisions align with temporal patterns and regional norms',
     icon: Calculator,
-    requiredFields: ['approvalStatus', 'transactionDate', 'region'],
+    requiredFields: ['approvalStatus', 'transactionDate', 'region'],  // Simplified requirements
     recommendedModels: {
       anomaly: ['autoencoder', 'isolation-forest'],
       predictive: ['xgboost', 'prophet']

@@ -24,21 +24,15 @@ import {
   CulturalEventAnalyticsData,
   CulturalDecisionData,
   TimelineDataPoint,
-  EventInsight,
-  CulturalPeriod,
-  CulturalPeriodsData,
-  AnalyzableComponent
+  EventInsight
 } from '../types/dashboard';
-import CulturalPatternAlerts, { AlertTimelineData, PatternType, PatternAlert } from "../components/dashboard/CulturalPatternAlerts";
+import CulturalPatternAlerts, { AlertTimelineData, PatternType } from "../components/dashboard/CulturalPatternAlerts";
 import Modal from "../components/modals/Modal";
 import CommunityImpactMap from "../components/dashboard/CommunityImpactMap";
 import CulturalEventAnalytics from "../components/dashboard/CulturalEventAnalytics";
 import CulturalDecisionImpact from "../components/dashboard/CulturalDecisionImpact";
 import { useData } from '../context/DataContext';
-import { getBestForecast, getCommunityImpact, getPatternPredictions } from '../services/api';
-import { getFocusMetrics } from "@/utils/focusMetrics";
-import { Bot } from "lucide-react";
-import DashboardAIPanel from "@/components/dashboard/DashboardAIPanel";
+import { getBestForecast } from '../services/api';
 
 interface Item {
   id: string;
@@ -55,24 +49,6 @@ const Dashboard: React.FC = () => {
   const { getProcessedData, columnMapping, selectedFocus } = useData();
   const [modalType, setModalType] = useState<string | null>(null);
   const [focusedItem, setFocusedItem] = useState<string | null>(null);
-  const [patternAlertsLoading, setPatternAlertsLoading] = useState(true);
-  const [culturalPeriodsData, setCulturalPeriodsData] = useState<CulturalPeriodsData | null>(null);
-  const [selectedComponentForAI, setSelectedComponentForAI] = useState<string | null>(null);
-  const [showAIPanel, setShowAIPanel] = useState(false);
-  const [communityImpactData, setCommunityImpactData] = useState<CommunityImpactData>({
-    
-    regions: [],
-    summary: {
-      totalRegions: 0,
-      averageApprovalRate: 0,
-      highestImpact: '',
-      lowestImpact: ''
-    },
-    filters: {
-      countries: [],
-      culturalFactors: []
-    }
-  });
 
   // 2. Utility Functions
   const isCulturalPeriod = (date: string): boolean => {
@@ -98,118 +74,54 @@ const Dashboard: React.FC = () => {
   ): Array<EventInsight> => {
     const events: EventInsight[] = [];
     const windowSize = 7; // 7-day window
-    
-    // Calculate baseline statistics
-    const values = timelineData.map(d => d.value);
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const stdDev = Math.sqrt(
-      values.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / values.length
-    );
-    
-    // Dynamic threshold based on data characteristics
-    const threshold = stdDev * 2; // 2 standard deviations
-    
+
     for (let i = windowSize; i < timelineData.length; i++) {
       const window = timelineData.slice(i - windowSize, i);
-      
-      // Calculate moving average
-      const movingAvg = window.reduce((sum, d) => sum + d.value, 0) / windowSize;
-      
-      // Calculate deviation from baseline
-      const deviation = Math.abs(movingAvg - mean);
-      
-      // Detect if current window represents cultural period
-      const startDate = new Date(window[0].timestamp);
-      const isCulturalPeriodForWindow = isCulturalPeriod(startDate.toISOString());
-      
-      if (deviation > threshold || isCulturalPeriodForWindow) {
-        const peakValue = Math.max(...window.map(d => d.value));
-        const volumeChange = ((window[window.length - 1].value - window[0].value) / window[0].value) * 100;
+      const avgDifference = window.reduce((sum, d) => sum + d.difference, 0) / windowSize;
+
+      if (avgDifference > 1000) { // Significant difference threshold
+        const startDate = window[0].timestamp;
+        const endDate = window[window.length - 1].timestamp;
         
         events.push({
           id: `event-${i}`,
-          eventName: isCulturalPeriodForWindow ? 
-            `Cultural Period Impact ${startDate.toLocaleDateString()}` : 
-            `Pattern Change ${startDate.toLocaleDateString()}`,
-          period: {
-            start: window[0].timestamp,
-            end: window[window.length - 1].timestamp
-          },
+          eventName: `Pattern Change ${new Date(startDate).toLocaleDateString()}`,
+          period: { start: startDate, end: endDate },
           metrics: {
-            averageIncrease: ((movingAvg - mean) / mean) * 100,
-            peakDifference: ((peakValue - mean) / mean) * 100,
+            averageIncrease: avgDifference / 10, // Scale for display
+            peakDifference: Math.max(...window.map(d => d.difference)),
             duration: windowSize,
-            patternConfidence: isCulturalPeriodForWindow ? 90 : 75,
-            adaptationProgress: isCulturalPeriodForWindow ? 85 : 65,
-            volumeChange
+            patternConfidence: 85,
+            adaptationProgress: 70,
+            volumeChange: window[window.length - 1].eventValue - window[0].eventValue
           },
           patterns: [
             {
               phase: 'before',
-              change: ((window[0].value - mean) / mean) * 100,
-              trend: window[0].value > mean ? 'increasing' : 'decreasing'
+              change: window[0].difference,
+              trend: window[0].eventValue > window[0].normalValue ? 'increasing' : 'decreasing'
             },
             {
               phase: 'during',
-              change: ((movingAvg - mean) / mean) * 100,
+              change: avgDifference,
               trend: 'stable'
             },
             {
               phase: 'after',
-              change: ((window[window.length - 1].value - mean) / mean) * 100,
-              trend: window[window.length - 1].value > movingAvg ? 'increasing' : 'decreasing'
+              change: window[window.length - 1].difference,
+              trend: window[window.length - 1].eventValue > window[window.length - 1].normalValue ? 'increasing' : 'decreasing'
             }
           ],
-          recommendations: isCulturalPeriodForWindow ? [
-            `Adjust thresholds by ${volumeChange > 0 ? '+' : ''}${volumeChange.toFixed(1)}%`,
-            `Review ${(Math.abs(movingAvg - mean) / mean * 100).toFixed(1)}% pattern deviation`,
-            `Analyze impact across ${dailyData[startDate.getTime()]?.regions?.length || 0} regions`
-          ] : [
-            `Investigate ${Math.abs(deviation).toFixed(1)}% deviation from baseline`,
-            `Monitor ${window.length}-day trend progression`,
-            `Compare with historical patterns (${mean.toFixed(1)} average)`
+          recommendations: [
+            'Monitor pattern progression',
+            'Review approval thresholds',
+            'Check regional distribution'
           ]
         });
       }
     }
-  
+
     return events;
-  };
-  const calculateThresholds = (data: Array<{
-    transactionDate: string;
-    amount: string;
-    approvalStatus: string;
-    region: string;
-  }>) => {
-    // Group transactions by hour first
-    const hourlyVolumes = data.reduce((acc, tx) => {
-      const hour = new Date(tx.transactionDate).setMinutes(0, 0, 0);
-      acc[hour] = (acc[hour] || 0) + 1;
-      return acc;
-    }, {} as Record<number, number>);
-  
-    const volumes = Object.values(hourlyVolumes);
-    const mean = volumes.reduce((a, b) => a + b, 0) / volumes.length;
-    const stdDev = Math.sqrt(
-      volumes.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / volumes.length
-    );
-    
-    return {
-      alert: mean + stdDev,
-      high: mean + (2 * stdDev),
-      medium: mean + (1.5 * stdDev),
-      low: mean + stdDev
-    };
-  };
-  const groupAlerts = (alerts: PatternAlert[]) => {
-    return alerts.reduce((groups, alert) => {
-      const date = new Date(alert.timestamp).toLocaleDateString();
-      if (!groups[date]) {
-        groups[date] = [];
-      }
-      groups[date].push(alert);
-      return groups;
-    }, {} as Record<string, PatternAlert[]>);
   };
 
   // 3. Data Processing Functions
@@ -310,220 +222,246 @@ const Dashboard: React.FC = () => {
     };
   };
 
-  const generateSuggestedActions = (
-    hourData: { transactions: any[], regions: Set<string> },
-    severity: 'high' | 'medium' | 'low',
-    focusMode: string,
-    deviation: number,
-    isCulturalPeriod: boolean
-  ): string[] => {
-    const actions = [];
-    
-    if (severity === 'high') {
-      actions.push(`Urgent: Review ${hourData.transactions.length} transactions in ${hourData.regions.size} regions`);
-      actions.push(`Investigate ${Math.abs(deviation).toFixed(1)}% deviation from baseline`);
-    }
-    
-    if (isCulturalPeriod) {
-      actions.push(`Adjust thresholds for cultural period impact`);
-      actions.push(`Monitor regional distribution changes`);
-    } else {
-      actions.push(`Check for pattern correlation with ${focusMode} metrics`);
-    }
-    
-    if (hourData.regions.size > 3) {
-      actions.push(`Analyze impact across ${hourData.regions.size} affected regions`);
-    }
-    
-    return actions;
-  };
-
-  const getPatternAlertData = async (): Promise<AlertTimelineData> => {
-    setPatternAlertsLoading(true);
-    try {
-      const processedData = getProcessedData() as Array<{
-        transactionDate: string;
-        amount: string;
-        approvalStatus: string;
-        region: string;
-      }>;
+  const getPatternAlertData = (): AlertTimelineData => {
+    const processedData = getProcessedData() as Array<{
+      transactionDate: string;
+      amount: string;
+      approvalStatus: string;
+      region: string;
+    }>;
   
-      // Get predictions first
-      const predictions = await getPatternPredictions(
-        processedData,
-        {
-          focusMode: selectedFocus || 'pattern',
-          window: '24h',
-          sensitivity: getFocusMetrics(selectedFocus || 'pattern').threshold
-        }
+    // Cultural period detection (reuse from getDecisionImpactData)
+    const isCulturalPeriod = (date: string): boolean => {
+      const d = new Date(date);
+      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+      const month = d.getMonth();
+      const day = d.getDate();
+      const isHoliday = (
+        (month === 11 && day >= 20) || // Christmas
+        (month === 0 && day <= 2) ||   // New Year
+        (month === 6 && day === 4)     // Independence Day
       );
-      
-      const hourlyData = processedData.reduce((acc, row) => {
-        const timestamp = new Date(row.transactionDate).getTime();
-        if (!acc[timestamp]) {
-          acc[timestamp] = {
-            transactions: [],
-            regions: new Set()
-          };
-        }
-        acc[timestamp].transactions.push(row);
-        acc[timestamp].regions.add(row.region);
-        return acc;
-      }, {} as Record<number, { transactions: any[], regions: Set<string> }>);
-
-      // Add threshold calculation
-      const thresholds = calculateThresholds(processedData);
-
-      // Update timeline and alerts to use dynamic thresholds
-      const timeline = Object.entries(hourlyData).map(([timestamp, data]) => ({
-        timestamp: new Date(parseInt(timestamp)).toISOString(),
-        alertCount: data.transactions.length > thresholds.alert ? 1 : 0,
-        baseline: thresholds.alert,
-        actual: data.transactions.length
-      }));
-
-      const alerts = timeline
-        .filter(t => t.alertCount > 0)
-        .map((t, i) => {
-          const hourData = hourlyData[new Date(t.timestamp).getTime()];
-          const severity = (
-            hourData.transactions.length > thresholds.high ? 'high' :
-            hourData.transactions.length > thresholds.medium ? 'medium' : 'low'
-          ) as 'high' | 'medium' | 'low';
-          const prediction = predictions.find((p: { timestamp: string }) => p.timestamp === t.timestamp);
-          const deviation = ((hourData.transactions.length - thresholds.alert) / thresholds.alert) * 100;
-
+      return isWeekend || isHoliday;
+    };
+  
+    // Focus-specific metric calculation
+    const getMetricsForFocus = (data: any, focusMode: string) => {
+      switch (focusMode) {
+        case 'pattern':
+          const avgAmount = data.amount / data.total;
           return {
-            id: `alert-${i}`,
-            timestamp: t.timestamp,
-            severity,
-            patternType: selectedFocus as PatternType,
-            culturalContext: isCulturalPeriod(t.timestamp) ? 
-              'Cultural Period Alert' : 'Pattern Alert',
-            metrics: {
-              value: hourData.transactions.length,
-              baseline: thresholds.alert,
-              deviation
-            },
-            details: {
-              description: `Unusual ${selectedFocus} pattern detected`,
-              affectedRegions: Array.from(hourData.regions),
-              suggestedActions: generateSuggestedActions(
-                hourData,
-                severity,
-                selectedFocus || 'pattern',
-                deviation,
-                isCulturalPeriod(t.timestamp)
-              )
-            },
-            adaptation: {
-              status: 'learning' as 'learning' | 'adjusting' | 'monitoring',
-              progress: 65,
-              lastUpdate: new Date().toISOString()
-            },
-            prediction,
-            modelInsights: {
-              featureImportance: {
-                'time_of_day': 0.4,
-                'day_of_week': 0.3,
-                'region': 0.3
-              },
-              similarPatterns: timeline
-                .slice(Math.max(0, i-3), i)
-                .map(pt => ({
-                  timestamp: pt.timestamp,
-                  similarity: 0.8 + Math.random() * 0.2
-                }))
-            }
+            value: avgAmount,
+            baseline: 1000, // Example baseline
+            actual: avgAmount,
+            deviation: Math.abs(avgAmount - 1000)
           };
-        });
-
-      const groupedAlerts = groupAlerts(alerts);
-
-      return {
-        timeline,
-        alerts,
-        groupedAlerts,
-        predictions,
-        modelMetrics: {
-          accuracy: 85,
-          lastTraining: new Date().toISOString(),
-          drift: 0.05
-        },
-        summary: {
-          total: alerts.length,
-          byPattern: {
-            [selectedFocus || 'pattern']: alerts.length
-          },
-          bySeverity: alerts.reduce((acc, alert) => {
-            acc[alert.severity] = (acc[alert.severity] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>),
-          byTimeOfDay: Object.keys(groupedAlerts).reduce((acc, period) => {
-            acc[period] = groupedAlerts[period].length;
-            return acc;
-          }, {} as Record<string, number>),
-          adaptationProgress: 65
-        }
+        case 'decision':
+          const approvalRate = (data.approvals / data.total) * 100;
+          return {
+            value: approvalRate,
+            baseline: 75,
+            actual: approvalRate,
+            deviation: Math.abs(approvalRate - 75)
+          };
+        case 'bias':
+          // Calculate regional disparity
+          const regionalRate = data.approvals / data.total;
+          return {
+            value: regionalRate * 100,
+            baseline: 80,
+            actual: regionalRate * 100,
+            deviation: Math.abs(regionalRate * 100 - 80)
+          };
+        default:
+          return null;
+      }
+    };
+  
+    // Group and process hourly data
+    const hourlyData = processedData.reduce((acc, tx) => {
+      const hour = new Date(tx.transactionDate).setMinutes(0, 0, 0);
+      if (!acc[hour]) {
+        acc[hour] = {
+          approvals: 0,
+          rejections: 0,
+          total: 0,
+          amount: 0,
+          regions: {} as Record<string, number>
+        };
+      }
+      acc[hour].total++;
+      acc[hour].amount += parseFloat(tx.amount);
+      acc[hour].regions[tx.region] = (acc[hour].regions[tx.region] || 0) + 1;
+      if (tx.approvalStatus?.toLowerCase() === 'approved') {
+        acc[hour].approvals++;
+      } else {
+        acc[hour].rejections++;
+      }
+      return acc;
+    }, {} as Record<number, any>);
+  
+    // Generate timeline and alerts
+    const timeline = Object.entries(hourlyData).map(([timestamp, data]) => {
+      const metrics = getMetricsForFocus(data, selectedFocus || 'pattern') ?? {
+        value: 0,
+        baseline: 0,
+        actual: 0,
+        deviation: 0
       };
-    } catch (error) {
-      console.error('Error getting pattern predictions:', error);
-      throw error;
-    } finally {
-      setPatternAlertsLoading(false);
-    }
+      
+      return {
+        timestamp: new Date(parseInt(timestamp)).toISOString(),
+        alertCount: metrics.deviation > 15 ? 1 : 0,
+        baseline: metrics.baseline,
+        actual: metrics.actual
+      };
+    });
+  
+    // Generate alerts
+    const alerts = timeline
+      .filter(t => t.alertCount > 0)
+      .map((t, i) => {
+        const hourData = hourlyData[new Date(t.timestamp).getTime()];
+        const metrics = getMetricsForFocus(hourData, selectedFocus || 'pattern') ?? {
+          value: 0,
+          baseline: 0,
+          actual: 0,
+          deviation: 0
+        };
+        
+        return {
+          id: `alert-${i}`,
+          timestamp: t.timestamp,
+          severity: (metrics.deviation > 25 ? 'high' : 
+                   metrics.deviation > 20 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
+          patternType: selectedFocus as PatternType,
+          culturalContext: isCulturalPeriod(t.timestamp) ? 
+            'Cultural Period Alert' : 'Pattern Alert',
+          metrics: {
+            value: metrics.value,
+            baseline: metrics.baseline,
+            deviation: metrics.deviation
+          },
+          details: {
+            description: `Unusual ${selectedFocus} pattern detected`,
+            affectedRegions: Object.keys(hourData.regions),
+            suggestedActions: [
+              'Review recent activity patterns',
+              'Check for cultural events correlation',
+              'Monitor pattern progression'
+            ]
+          },
+          adaptation: {
+            status: 'learning' as 'learning' | 'adjusting' | 'monitoring',
+            progress: 65,
+            lastUpdate: new Date().toISOString()
+          }
+        };
+      });
+  
+    return {
+      timeline,
+      alerts,
+      summary: {
+        total: alerts.length,
+        byPattern: {
+          spending: alerts.filter(a => a.patternType === 'spending').length,
+          decision: alerts.filter(a => a.patternType === 'decision').length,
+          bias: alerts.filter(a => a.patternType === 'bias').length
+        },
+        bySeverity: {
+          high: alerts.filter(a => a.severity === 'high').length,
+          medium: alerts.filter(a => a.severity === 'medium').length,
+          low: alerts.filter(a => a.severity === 'low').length
+        },
+        adaptationProgress: 65
+      }
+    };
   };
 
-  const getCulturalPeriodsData = async (): Promise<CulturalPeriodsData | null> => {
-    try {
-      const processedData = getProcessedData();
-      if (!processedData.length) return null;
+  const getCommunityImpactData = (): CommunityImpactData => {
+    const processedData = getProcessedData() as Array<{
+      transactionDate: string;
+      amount: string;
+      approvalStatus: string;
+      region: string;
+    }>;
   
-      const historicalData = processedData.map(tx => ({
-        timestamp: tx.transactionDate,
-        value: parseFloat(tx.amount),
-      }));
+    // Add mapping for region names to ISO codes and coordinates
+    const regionMapping: Record<string, { code: string; coordinates: { lat: number; lng: number } }> = {
+      'Asia': { 
+        code: 'CHN', // Using China as center point for Asia
+        coordinates: { lat: 35.8617, lng: 104.1954 }
+      },
+      'Europe': { 
+        code: 'DEU', // Using Germany as center point for Europe
+        coordinates: { lat: 51.1657, lng: 10.4515 }
+      },
+      'North America': { 
+        code: 'USA',
+        coordinates: { lat: 37.0902, lng: -95.7129 }
+      },
+      // Add more regions as needed
+    };
   
-      const { forecast } = await getBestForecast(historicalData);
+    // Group data by region
+    const regionData = processedData.reduce((acc, tx) => {
+      if (!acc[tx.region]) {
+        acc[tx.region] = {
+          approvals: 0,
+          total: 0,
+          amount: 0,
+          culturalPeriods: new Set<string>()
+        };
+      }
+      acc[tx.region].total++;
+      acc[tx.region].amount += parseFloat(tx.amount);
+      if (tx.approvalStatus?.toLowerCase() === 'approved') {
+        acc[tx.region].approvals++;
+      }
+      return acc;
+    }, {} as Record<string, any>);
   
-      const predictedPeriods: CulturalPeriod[] = forecast.map((point, index) => ({
-        id: `predicted-${index}`,
-        name: `Predicted Event (${new Date(point.timestamp).toLocaleDateString()})`,
-        description: "AI-forecasted cultural impact",
-        type: "community",
-        startDate: point.timestamp,
-        endDate: point.timestamp,
-        impact: {
-          level: point.value > 0.5 ? "high" : "medium",
-          expectedChange: point.value,
-          affectedMetrics: ["Predicted Transaction Volume"],
-        },
-        patternChanges: [{ metric: "Volume", change: point.value, direction: "increase" }],
-        aiGenerated: true,
-      }));
-  
-      return {
-        active: [], 
-        upcoming: predictedPeriods,
-        recentlyEnded: [],
-        historical: { // ✅ Ensure this field exists
-          spending: processedData.map(tx => parseFloat(tx.amount)),
-          approvals: processedData.map(tx => (tx.approvalStatus.toLowerCase() === "approved" ? 1 : 0)),
-          dates: processedData.map(tx => tx.transactionDate),
-        },
-        impactMetrics: {
-          totalEvents: predictedPeriods.length,
-          highImpact: predictedPeriods.filter(p => p.impact.level === "high").length,
-          averageChange: predictedPeriods.length
-            ? predictedPeriods.reduce((acc, p) => acc + p.impact.expectedChange, 0) / predictedPeriods.length
-            : 0,
+    // Transform into CommunityImpactData format
+    const regions = Object.entries(regionData).map(([name, data]) => ({
+      id: `region-${name}`,
+      name,
+      code: regionMapping[name]?.code || name.substring(0, 3).toUpperCase(),
+      coordinates: regionMapping[name]?.coordinates || { lat: 0, lng: 0 },
+      metrics: {
+        approvalRate: (data.approvals / data.total) * 100,
+        culturalImpact: (data.approvals / data.total) * 90,
+        totalDecisions: data.total,
+        transactionVolume: data.amount
+      },
+      culturalFactors: [
+        {
+          name: 'Regional Pattern',
+          influence: (data.approvals / data.total) * 100,
+          trend: (data.approvals / data.total > 0.8 ? 'increasing' : 'stable') as 'increasing' | 'stable' | 'decreasing'
         }
-      };
-    } catch (error) {
-      console.error("Error fetching cultural periods:", error);
-      return null;
-    }
-  };  
+      ]
+    }));
+  
+    // Calculate summary
+    const sortedByImpact = [...regions].sort((a, b) => 
+      b.metrics.culturalImpact - a.metrics.culturalImpact
+    );
+  
+    return {
+      regions,
+      summary: {
+        totalRegions: regions.length,
+        averageApprovalRate: regions.reduce((sum, r) => sum + r.metrics.approvalRate, 0) / regions.length,
+        highestImpact: sortedByImpact[0]?.name || 'None',
+        lowestImpact: sortedByImpact[sortedByImpact.length - 1]?.name || 'None'
+      },
+      filters: {
+        countries: regions.map(r => r.name),
+        culturalFactors: ['Regional Pattern']
+      }
+    };
+  };
 
   const getEventAnalyticsData = async (): Promise<CulturalEventAnalyticsData> => {
 
@@ -607,6 +545,7 @@ const Dashboard: React.FC = () => {
           forecastConfidence: confidence
         }
       };
+      console.log('Returning data:', returnData);
       return returnData;
     } catch (error) {
       console.error('Error getting forecast:', error);
@@ -645,21 +584,14 @@ const Dashboard: React.FC = () => {
       id: "cultural-alignment", 
       title: "Cultural Alignment", 
       type: "metric",
-      content: <CulturalAlignmentScore 
-        showDetails={true} // Changed from showFactors to showDetails
-        isPreview={false} 
-      />
+      content: <CulturalAlignmentScore showFactors={true} />
     },
     { 
       id: "cultural-periods", 
       title: "Cultural Periods", 
       type: "metric",
-      content: <ActiveCulturalPeriods 
-        isPreview={true} 
-        isFocused={false} 
-        data={undefined} // This will be replaced dynamically by useEffect
-      />
-    },    
+      content: <ActiveCulturalPeriods />
+    },
     { 
       id: "decision-impact", 
       title: "Decision Impact", 
@@ -671,27 +603,8 @@ const Dashboard: React.FC = () => {
       title: "Cultural Pattern Alerts", 
       type: "metric",
       content: <CulturalPatternAlerts 
-        data={{
-          timeline: [],
-          alerts: [],
-          predictions: [],
-          groupedAlerts: {},
-          modelMetrics: {
-            accuracy: 0,
-            lastTraining: new Date().toISOString(),
-            drift: 0
-          },
-          summary: {
-            total: 0,
-            byPattern: {},
-            bySeverity: {},
-            byTimeOfDay: {},
-            adaptationProgress: 0
-          }
-        }}
+        data={getPatternAlertData()} 
         focusMode={selectedFocus || 'pattern'}
-        isPreview={true}
-        isLoading={patternAlertsLoading}
       />
     },
     { 
@@ -699,7 +612,7 @@ const Dashboard: React.FC = () => {
       title: "Community Impact", 
       type: "metric",
       content: <CommunityImpactMap 
-        data={communityImpactData}
+        data={getCommunityImpactData()} 
         focusMode={selectedFocus || 'pattern'}
       />
     },
@@ -769,6 +682,7 @@ const Dashboard: React.FC = () => {
   // 6. UI/Render Functions
   const renderBackground = () => {
     const { type, config } = backgroundConfig;
+    console.log('Rendering background type:', type);
     
     switch (type) {
       case 'gradient-analytics':
@@ -819,6 +733,7 @@ const Dashboard: React.FC = () => {
   const renderModalContent = (type: string) => {
     const item = items.find(i => i.id === type);
     if (!item) return null;
+    
     return React.cloneElement(item.content, { 
       isFocused: true,
       isPreview: false 
@@ -828,99 +743,65 @@ const Dashboard: React.FC = () => {
 
   // 7. Effects
   useEffect(() => {
-    let isMounted = true;
+    let isMounted = true; // Add mounted check
   
-    const loadDashboardData = async () => {
+    const loadEventAnalytics = async () => {
       try {
-        // Fetch all data in parallel
-        const [
-          eventAnalyticsData, 
-          patternData, 
-          culturalPeriodsData,
-          communityImpactResponse
-        ] = await Promise.all([
-          getEventAnalyticsData(),
-          getPatternAlertData(),
-          getCulturalPeriodsData(),
-          getCommunityImpact(getProcessedData(), columnMapping)  // Add this
-        ]);
-  
-        if (!isMounted) return;
+        const eventAnalyticsData = await getEventAnalyticsData();
         
-        setCommunityImpactData(communityImpactResponse);
-
-        // ✅ Store fetched Cultural Periods data separately
-        if (culturalPeriodsData) {
-          setCulturalPeriodsData(culturalPeriodsData);
-        }
+        if (!isMounted) return; // Check if still mounted
   
-        // ✅ Update items efficiently in one state update
-        setItems(prevItems =>
-          prevItems.map(item => {
-            switch (item.id) {
-              case "event-analytics":
-                return {
+        setItems(prevItems => 
+          prevItems.map(item => 
+            item.id === "event-analytics" 
+              ? {
                   ...item,
-                  content: (
-                    <CulturalEventAnalytics
-                      data={eventAnalyticsData}
-                      focusMode={selectedFocus || "pattern"}
-                      isLoading={false}
-                    />
-                  )
-                };
-  
-              case "cultural-pattern-alerts":
-                return {
-                  ...item,
-                  content: (
-                    <CulturalPatternAlerts
-                      data={patternData}
-                      focusMode={selectedFocus || "pattern"}
-                      isLoading={false}
-                    />
-                  )
-                };
-  
-              case "cultural-periods":
-                return {
-                  ...item,
-                  content: (
-                    <ActiveCulturalPeriods
-                      isPreview={true}
-                      isFocused={false}
-                      data={culturalPeriodsData ?? undefined}
-                    />
-                  )
-                };
-
-                case "community-impact":
-                  return {
-                    ...item,
-                    content: (
-                      <CommunityImpactMap
-                        data={communityImpactResponse}
-                        focusMode={selectedFocus || "pattern"}
-                      />
-                    )
-                  };
-  
-              default:
-                return item;
-            }
-          })
+                  content: <CulturalEventAnalytics 
+                    data={eventAnalyticsData}
+                    focusMode={selectedFocus || 'pattern'}
+                    isLoading={false}
+                  />
+                }
+              : item
+          )
         );
       } catch (error) {
-        console.error("Error loading dashboard data:", error);
+        console.error('Error loading event analytics:', error);
+        if (!isMounted) return;
+        
+        setItems(prevItems => 
+          prevItems.map(item => 
+            item.id === "event-analytics" 
+              ? {
+                  ...item,
+                  content: <CulturalEventAnalytics 
+                    data={{
+                      timelineData: [],
+                      insights: [],
+                      summary: {
+                        totalEvents: 0,
+                        averageImpact: 0,
+                        significantPatterns: [],
+                        aiAdaptation: 0
+                      }
+                    }}
+                    focusMode={selectedFocus || 'pattern'}
+                    isLoading={false}
+                    error={error instanceof Error ? error.message : 'Failed to load event analytics'}
+                  />
+                }
+              : item
+          )
+        );
       }
     };
   
-    loadDashboardData();
+    loadEventAnalytics();
   
     return () => {
-      isMounted = false;
+      isMounted = false; // Cleanup
     };
-  }, [selectedFocus, getProcessedData]); // ✅ Runs when dependencies change
+  }, [selectedFocus, getProcessedData, customColors]); // Add getProcessedData to dependencies
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3, tolerance: 5 } }),
@@ -935,46 +816,9 @@ const Dashboard: React.FC = () => {
           {renderBackground()}
         </div>
       )}
-  
+
       {/* Content layer */}
       <div className="relative">
-        {/* Header section */}
-        <div className="p-4 border-b" style={{ borderColor: customColors?.borderColor }}>
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <h1 className="text-3xl font-bold" style={{ color: customColors?.textColor }}>
-                Dashboard
-              </h1>
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedComponentForAI || ''}
-                  onChange={(e) => setSelectedComponentForAI(e.target.value)}
-                  className="p-2 rounded-lg border text-sm"
-                  style={{
-                    borderColor: customColors?.borderColor,
-                    backgroundColor: customColors?.backgroundColor,
-                    color: customColors?.textColor
-                  }}
-                >
-                  <option value="">Select component to analyze...</option>
-                  {items.map(item => (
-                    <option key={item.id} value={item.id}>{item.title}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => setShowAIPanel(true)}
-                  disabled={!selectedComponentForAI}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white disabled:opacity-50"
-                >
-                  <Bot className="w-4 h-4" />
-                  AI Analysis
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-  
-        {/* Grid Container */}
         <div
           className={`grid-container ${focusedItem ? "focus-mode" : ""}`}
           style={{
@@ -1014,11 +858,10 @@ const Dashboard: React.FC = () => {
             </SortableContext>
           </DndContext>
         </div>
-  
+
         <Dock />
       </div>
-  
-      {/* Modal */}
+
       {modalType && (
         <Modal
           isOpen={!!modalType}
@@ -1031,18 +874,8 @@ const Dashboard: React.FC = () => {
           {renderModalContent(modalType)}
         </Modal>
       )}
-  
-      {/* AI Panel */}
-      <DashboardAIPanel
-        isOpen={showAIPanel}
-        onClose={() => setShowAIPanel(false)}
-        componentType={selectedComponentForAI || ''}
-        data={selectedComponentForAI ? items.find(item => item.id === selectedComponentForAI)?.content.props.data : null}
-        isLoading={false}
-        customColors={customColors}
-      />
     </div>
   );
-}
+};
 
 export default Dashboard;
