@@ -1,3 +1,70 @@
-h1 {
-    color: black;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+    font-family: 'Chakra Petch';
+    src: url('/assets/fonts/Chakra_Petch/ChakraPetch-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Chakra Petch';
+    src: url('/assets/fonts/Chakra_Petch/ChakraPetch-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'DM Sans';
+    src: url('/assets/fonts/DM_Sans/static/DMSans-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'DM Sans';
+    src: url('/assets/fonts/DM_Sans/static/DMSans-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Switzer';
+    src: url('/assets/fonts/Switzer_Complete/Fonts/TTF/Switzer-Variable.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Arquitecta';
+    src: url('/assets/fonts/arquitecta/Arquitecta.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Arquitecta';
+    src: url('/assets/fonts/arquitecta/ArquitectaBold.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Arquitecta';
+    src: url('/assets/fonts/arquitecta/ArquitectaItalic.otf') format('opentype');
+    font-weight: 400;
+    font-style: italic;
+}
+@font-face {
+    font-family: 'Arquitecta';
+    src: url('/assets/fonts/arquitecta/ArquitectaHeavy.otf') format('opentype');
+    font-weight: 900;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Aileron';
+    src: url('/assets/fonts/aileron/Aileron-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Aileron';
+    src: url('/assets/fonts/aileron/Aileron-Bold.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
 }
