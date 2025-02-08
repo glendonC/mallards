@@ -68,3 +68,101 @@
     font-weight: 700;
     font-style: normal;
 }
+
+/* Global Variables */
+:root {
+    /* General Variables */
+    --nav-height: 70px;
+    --backgroundColor: #f3f3f0;
+
+    /* Font Families */
+    --font-heading: 'Chakra Petch', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-accent: 'Arquitecta', sans-serif;
+    --font-alt: 'Aileron', sans-serif;
+
+    /* Border and Auth */
+    --borderColor: rgba(0, 0, 0, 0.125);
+    
+}
+
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body, #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: var(--font-body), Arial, sans-serif;
+    background-color: var(--backgroundColor);
+    overflow-x: hidden;
+    line-height: 1.5;
+    font-weight: 400;
+    color: #333; /* Default text color */
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #111; /* Heading text color */
+}
+
+.accent-text {
+    font-family: var(--font-accent);
+    font-weight: 600;
+    color: var(--borderColor);
+}
+
+/* Utility */
+.loader-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Dashboard */
+.dashboard {
+    background-color: var(--backgroundColor);
+    height: calc(100vh - var(--nav-height));
+    padding-top: var(--nav-height);
+}
+
+.grid-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: repeat(3, minmax(100px, 1fr));
+    gap: 15px;
+    padding: 20px;
+    height: calc(100vh - var(--nav-height) - 80px);
+    overflow: auto;
+    font-family: var(--font-body);
+}
+
+.grid-item {
+    background-color: #ffffff;
+    border: 1px solid var(--borderColor);
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    font-family: var(--font-body);
+    color: #333;
+}
+
+.dock-container {
+    height: 80px;
+    background-color: var(--backgroundColor);
+    border-top: 1px solid var(--borderColor);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: var(--font-accent);
+}

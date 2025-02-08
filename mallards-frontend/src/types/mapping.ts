@@ -1,3 +1,4 @@
+// Define all possible field types for cultural monitoring
 export type RequiredField = 
   | 'transactionDate'
   | 'amount'
@@ -61,4 +62,4 @@ export const AVAILABLE_FIELDS: FieldDefinition[] = [
       description: 'Geographic location',
       required: false
     }
-];
+  ];

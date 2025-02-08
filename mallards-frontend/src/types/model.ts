@@ -1,3 +1,4 @@
+// Types and interfaces
 export interface Model {
   id: string;
   name: string;
@@ -15,6 +16,7 @@ export interface Model {
     max?: number;
     description: string;
   }[];
+  // ... rest of Model interface
 }
 
 export interface ModelPreset {
@@ -60,3 +62,5 @@ export interface DetailedPerformanceMetrics {
     sampleSize: number;
   };
 }
+
+// ... other interfaces 

@@ -1,0 +1,176 @@
+/* General Styles */
+.theme-modal {
+    display: flex;
+    gap: 20px;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 150px;
+}
+
+.tab {
+    padding: 10px;
+    text-align: center;
+    background: var(--tileColor);
+    border: 1px solid var(--borderColor);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s ease;
+    font-size: 0.9rem;
+    border-radius: 5px;
+}
+
+.tab.active {
+    background: var(--textColor);
+    color: var(--tileColor);
+    border-color: var(--textColor);
+}
+
+.tab:hover {
+    background: var(--backgroundColor);
+    color: var(--textColor);
+}
+
+/* Tab Content */
+.tab-content {
+    flex: 1;
+    padding: 20px;
+    background: var(--tileColor);
+    border: 1px solid var(--borderColor);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Font Options */
+.font-options {
+    margin-top: 8px;
+}
+
+.font-select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--borderColor);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background-color: var(--tileColor);
+    color: var(--textColor);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.font-select option {
+    padding: 8px;
+}
+
+/* Theme Preset Buttons */
+.theme-presets {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.theme-preset-btn {
+    padding: 10px;
+    border: 2px solid transparent;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    font-size: 0.9rem;
+    background: var(--tileColor);
+    color: var(--textColor);
+}
+
+.theme-preset-btn:hover {
+    border-color: var(--textColor);
+    background: var(--backgroundColor);
+}
+
+.theme-preset-btn.selected {
+    border-color: var(--textColor);
+    background: var(--textColor);
+    color: var(--tileColor);
+}
+
+/* Layout Selection Buttons */
+.layout-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.layout-btn {
+    padding: 10px;
+    border: 2px solid transparent;
+    border-radius: 5px;
+    background: var(--tileColor);
+    color: var(--textColor);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.layout-btn:hover {
+    border-color: var(--textColor);
+    background: var(--backgroundColor);
+}
+
+.layout-btn.selected {
+    border-color: var(--textColor);
+    background: var(--textColor);
+    color: var(--tileColor);
+}
+
+/* Background Options */
+.background-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.background-btn {
+    padding: 10px;
+    border: 2px solid transparent;
+    border-radius: 5px;
+    background: var(--tileColor);
+    color: var(--textColor);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.background-btn:hover {
+    border-color: var(--textColor);
+    background: var(--backgroundColor);
+}
+
+.background-btn.selected {
+    border-color: var(--textColor);
+    background: var(--textColor);
+    color: var(--tileColor);
+}
+
+/* Preview Section */
+.preview-section {
+    flex: 1;
+    padding: 20px;
+    background: var(--backgroundColor);
+    border: 1px solid var(--borderColor);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.preview-grid {
+    display: grid;
+    gap: 5px;
+    padding: 10px;
+    background: var(--tileColor);
+    border-radius: 8px;
+}

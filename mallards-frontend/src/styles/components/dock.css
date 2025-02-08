@@ -1,0 +1,96 @@
+.dock-container {
+    width: max-content;
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 0.5em 0.25em;
+    display: flex;
+    justify-content: center;
+    background-color: var(--tile-color, #F8F9FA);
+    border: 1px solid var(--border-color, #DEE2E6);
+    border-radius: 40px;
+    transform-origin: center;
+    cursor: pointer;
+    z-index: 1000000;
+}
+
+.dock {
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-around;
+}
+
+.dock-item {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  background: var(--background-color, #FFFFFF);
+  border: 1px solid var(--border-color, #DEE2E6);
+  border-radius: 30px;
+  margin: 0 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transform: scale(1);
+  transition: 700ms cubic-bezier(0.075, 0.82, 0.165, 1);
+  transform-origin: bottom;
+  text-decoration: none;
+}
+
+.dock-item i {
+  color: var(--text-color, #333333);
+  font-size: 14px;
+}
+  
+/* Hover Effect Styles */
+.dock-item::after {
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  content: '';
+  box-sizing: content-box;
+  box-shadow: 0 0 0 3px var(--dark-btn-bg, #1a1a1a);
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transition: 300ms;
+}
+
+.dock-item:hover::after {
+  opacity: 1;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px var(--highlight-color),
+              0px 0px 50px var(--highlight-color),
+              0px 0px 100px var(--highlight-color);
+}
+  
+.dock-hover-fx { --highlight-color: #ff6f61; }
+.dock-hover-fx-1 { --highlight-color: #4caf50; }
+.dock-hover-fx-2 { --highlight-color: #ffeb3b; }
+.dock-hover-fx-3 { --highlight-color: #03a9f4; }
+.dock-hover-fx-4 { --highlight-color: #e91e63; }
+
+.dock-item-link-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .dock-item {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .dock-item i {
+    font-size: 12px;
+  }
+}

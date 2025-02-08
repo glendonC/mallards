@@ -1,3 +1,4 @@
+// csvParser.ts
 import Papa from 'papaparse';
 
 export const parseCSV = (content: string): { data: string[][], errors: string[] } => {
