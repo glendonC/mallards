@@ -1,3 +1,4 @@
+// src/components/theme/common/types.ts
 import { ReactNode } from 'react';
 import { LucideIcon } from 'lucide-react';
 

@@ -1,3 +1,4 @@
+// src/components/theme/layouts/LayoutSelector.tsx
 import React from 'react';
 import { useTheme } from '../../../../context/ThemeContext';
 import LayoutPreview from './LayoutPreview';

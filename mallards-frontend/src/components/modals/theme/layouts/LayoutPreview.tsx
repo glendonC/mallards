@@ -1,3 +1,4 @@
+// src/components/theme/layouts/LayoutPreview.tsx
 import React from 'react';
 import { defaultLayouts, previewItems, LayoutId } from './layoutConfigs';
 import { useTheme } from '../../../../context/ThemeContext';

@@ -1,3 +1,4 @@
+// src/components/theme/colors/ColorSelector.tsx
 import React from 'react';
 import { useTheme } from '../../../../context/ThemeContext';
 import OptionButton from '../common/OptionButton';

@@ -1,3 +1,4 @@
+// src/components/theme/typography/TypographyPreview.tsx
 import React from 'react';
 import { FontFamily } from './typographyConfigs';
 import { defaultLayouts, previewItems } from '../layouts/layoutConfigs';
@@ -10,6 +11,7 @@ interface TypographyPreviewProps {
 const TypographyPreview: React.FC<TypographyPreviewProps> = ({ selectedFont }) => {
   const { customColors } = useTheme();
   
+  // Get the default layout configuration
   const defaultLayout = defaultLayouts['grid-default'];
 
   const createPreviewGrid = () => {

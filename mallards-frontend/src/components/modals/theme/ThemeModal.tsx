@@ -1,3 +1,4 @@
+// src/components/theme/ThemeModal.tsx
 import React, { useState } from "react";
 import { Layout, Palette, Type, Image, ArrowLeft } from "lucide-react";
 import LayoutSelector from "./layouts/LayoutSelector";

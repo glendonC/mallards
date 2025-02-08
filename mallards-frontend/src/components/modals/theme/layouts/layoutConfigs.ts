@@ -1,3 +1,4 @@
+// src/components/theme/layouts/layoutConfigs.ts
 export interface GridArea {
   gridColumn: string;
   gridRow: string;

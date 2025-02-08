@@ -1,3 +1,4 @@
+// src/components/theme/common/PreviewCard.tsx
 import React from 'react';
 import { PreviewCardProps } from './types';
 

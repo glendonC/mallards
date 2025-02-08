@@ -1,6 +1,8 @@
+// src/components/theme/colors/ColorPreview.tsx
 import React from 'react';
 import { defaultLayouts, previewItems } from '../layouts/layoutConfigs';
 import { ThemePresetId } from './colorConfigs';
+import { useTheme } from '../../../../context/ThemeContext';
 
 interface ColorPreviewProps {
   selectedTheme: ThemePresetId;
@@ -16,6 +18,7 @@ interface ColorPreviewProps {
 const ColorPreview: React.FC<ColorPreviewProps> = ({ selectedTheme, previewColors }) => {
   const defaultLayout = defaultLayouts['grid-default'];
 
+  // Sample data for metrics
   const getMetricValue = (itemId: string) => {
     switch (itemId) {
       case 'total-transactions': return '157,893';

@@ -1,3 +1,4 @@
+// src/components/theme/typography/typographyConfigs.ts
 export type FontFamily = 'Chakra Petch' | 'DM Sans' | 'Switzer' | 'Arquitecta' | 'Aileron';
 
 export interface FontOption {
@@ -6,6 +7,7 @@ export interface FontOption {
   previewText?: string;
 }
 
+// Try using a const assertion to ensure type safety
 export const fontOptions = [
   { 
     id: 'Chakra Petch' as FontFamily,
@@ -34,4 +36,5 @@ export const fontOptions = [
   }
 ] as const;
 
+// Add a default export if needed
 export default fontOptions;
