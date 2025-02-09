@@ -1,7 +1,7 @@
-import sys
+import sys, random, traceback, json, io
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +11,6 @@ from config.settings import MODEL_CONFIGS, MONITORING_CONFIGS
 from models.schemas import (
     OptimizationRequest, 
     OptimizationResponse,
-    SimulationResults,
     Transaction,
     ColumnMapping,
     DetectionRule,
@@ -19,29 +18,19 @@ from models.schemas import (
     ModelParameters,
     OptimizationRequest,
     OptimizationResponse,
-    OptimizedParameters,
-    OptimizationImprovement,
-    SimulationResults,
-    SimulationParameters
 )
-
-from typing import List, Optional
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from services.analysis.pattern_detector import PatternDetector
 from services.analysis.risk_analyzer import RiskAnalyzer
-import random
 from datetime import datetime, timedelta
-import traceback
 from services.ai.gpt_service import GPTService
 from services.ai.insight_manager import InsightManager
 from models.schemas import AIAnalysisRequest, AIAnalysisResponse
 from openai import OpenAI
 from config.settings import OPENAI_API_KEY
 from fastapi.responses import StreamingResponse
-import io
 from models.schemas import DashboardAnalysisRequest, DashboardAnalysisResponse
 from services.ai.dashboard_gpt_service import DashboardGPTService
-import json
 from services.optimization.optimizer_service import OptimizerService
 from models.schemas import OptimizationRequest, OptimizationResponse
 from services.ai.anomalies_gpt_service import AnomaliesGPTService
@@ -1122,24 +1111,24 @@ async def anomalies_chat(request: AnomaliesChatRequest):
         # Format the chat context for GPT
         context_prompt = f"""You are analyzing anomalies in an AI lending system with cultural intelligence.
 
-Current anomalies data:
-Violations: {len(request.context['data'].get('violations', []))} cultural pattern violations
-Decisions: {len(request.context['data'].get('decisions', {}).get('metrics', []))} decision conflicts
-Deviations: {len(request.context['data'].get('deviations', []))} unusual deviations
+        Current anomalies data:
+        Violations: {len(request.context['data'].get('violations', []))} cultural pattern violations
+        Decisions: {len(request.context['data'].get('decisions', {}).get('metrics', []))} decision conflicts
+        Deviations: {len(request.context['data'].get('deviations', []))} unusual deviations
 
-Previous insights generated:
-{request.context.get('insights', [])}
+        Previous insights generated:
+        {request.context.get('insights', [])}
 
-Previous conversation:
-{' '.join([f"{msg.role}: {msg.content}" for msg in request.messages[:-1]])}
+        Previous conversation:
+        {' '.join([f"{msg.role}: {msg.content}" for msg in request.messages[:-1]])}
 
-User question: {request.messages[-1].content}
+        User question: {request.messages[-1].content}
 
-Please provide a clear, specific answer focused on the anomalies data. Consider:
-1. Patterns across different types of anomalies
-2. Relationships between violations, conflicts, and deviations
-3. Cultural context and impact
-4. Specific metrics and trends when relevant"""
+        Please provide a clear, specific answer focused on the anomalies data. Consider:
+        1. Patterns across different types of anomalies
+        2. Relationships between violations, conflicts, and deviations
+        3. Cultural context and impact
+        4. Specific metrics and trends when relevant"""
 
         # Keep the greeting check from your dashboard chat
         last_message = request.messages[-1].content.strip().lower()
@@ -1217,23 +1206,23 @@ async def predictive_chat(request: PredictiveChatRequest):
         # Format the chat context for GPT
         context_prompt = f"""You are analyzing predictive insights in an AI lending system with cultural intelligence.
 
-Current predictive data:
-Forecast: {len(request.context['data'].get('forecast', {}).get('forecast', []))} predictions
-Events: {len(request.context['data'].get('events', []))} upcoming events
+        Current predictive data:
+        Forecast: {len(request.context['data'].get('forecast', {}).get('forecast', []))} predictions
+        Events: {len(request.context['data'].get('events', []))} upcoming events
 
-Previous insights generated:
-{request.context.get('insights', [])}
+        Previous insights generated:
+        {request.context.get('insights', [])}
 
-Previous conversation:
-{' '.join([f"{msg.role}: {msg.content}" for msg in request.messages[:-1]])}
+        Previous conversation:
+        {' '.join([f"{msg.role}: {msg.content}" for msg in request.messages[:-1]])}
 
-User question: {request.messages[-1].content}
+        User question: {request.messages[-1].content}
 
-Please provide a clear, specific answer focused on the predictive data. Consider:
-1. Forecast patterns and trends
-2. Upcoming cultural events and their impact
-3. Regional variations and cultural context
-4. Specific metrics and confidence levels when relevant"""
+        Please provide a clear, specific answer focused on the predictive data. Consider:
+        1. Forecast patterns and trends
+        2. Upcoming cultural events and their impact
+        3. Regional variations and cultural context
+        4. Specific metrics and confidence levels when relevant"""
 
         # Keep the greeting check
         last_message = request.messages[-1].content.strip().lower()

@@ -32,12 +32,12 @@ export const layoutOptions: LayoutOption[] = [
 ];
 
 export const previewItems: PreviewItem[] = [
-  { id: 'total-transactions', title: 'Total Transactions', type: 'metric' },
-  { id: 'total-anomalies', title: 'Total Anomalies', type: 'metric' },
-  { id: 'anomaly-percentage', title: 'Anomaly %', type: 'metric' },
-  { id: 'high-severity', title: 'High Severity', type: 'metric' },
-  { id: 'severity-distribution', title: 'Severity Distribution', type: 'chart' },
-  { id: 'anomalies-over-time', title: 'Anomalies Over Time', type: 'chart' }
+  { id: 'total-transactions', title: 'Cultural Alignment', type: 'metric' },
+  { id: 'total-anomalies', title: 'Cultural Periods', type: 'metric' },
+  { id: 'anomaly-percentage', title: 'Decision Impact', type: 'metric' },
+  { id: 'high-severity', title: 'Cultural Pattern Alerts', type: 'metric' },
+  { id: 'severity-distribution', title: 'Community Impact', type: 'chart' },
+  { id: 'anomalies-over-time', title: 'Event Analytics', type: 'chart' }
 ];
 
 export const defaultLayouts: Record<LayoutId, LayoutConfig> = {
