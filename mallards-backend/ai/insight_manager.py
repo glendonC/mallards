@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Literal
+from typing import List, Dict, Literal
 from datetime import datetime
 from models.schemas import (
     Insight,

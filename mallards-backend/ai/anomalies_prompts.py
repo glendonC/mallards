@@ -1,4 +1,3 @@
-# services/ai/anomalies_prompts.py
 import json
 from typing import Any, Dict
 
