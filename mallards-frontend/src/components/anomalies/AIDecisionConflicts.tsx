@@ -5,8 +5,6 @@ import { useTheme } from '../../context/ThemeContext';
 import { 
   DecisionMetrics, 
   AIDecisionData,
-  CulturalContext,
-  ConflictAnalysis 
 } from '../../types/anomaly';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartData } from 'chart.js';
 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, X, Loader2, MessageSquare, AlertTriangle, TrendingUp, Volume2, Pause } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useTheme } from '../../context/ThemeContext';
 import { 
   CulturalViolation, 
   AIDecisionData, 
