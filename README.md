@@ -35,7 +35,7 @@ Forecast risk & lending shifts with AI models (Prophet, ARIMA).
 ## Installation & Setup ⚡
 1️⃣ Clone the Repository
 ```
-git clone [https://github.com/your-repo-name.git](https://github.com/glendonC/mallards.git)
+git clone https://github.com/glendonC/mallards.git
 cd mallards
 ```
 
