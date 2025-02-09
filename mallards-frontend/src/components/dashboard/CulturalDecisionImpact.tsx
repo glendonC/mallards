@@ -1,25 +1,24 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useData } from '../../context/DataContext';
+import { getDecisionImpact } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { CulturalDecisionData } from '../../types/dashboard';
-import { Calendar, Filter, TrendingUp } from 'lucide-react';
-import { Bar as ChartJSBar } from 'react-chartjs-2';
+import { Calendar, Filter, TrendingUp, Loader, Brain } from 'lucide-react';
+import { Line as ChartJSLine } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement,
+  LineElement,
+  PointElement,
   Title,
   Tooltip as ChartJSTooltip,
-  Legend as ChartJSLegend,
-  LineElement,
-  PointElement
+  Legend as ChartJSLegend
 } from 'chart.js';
-import { Line as ChartJSLine } from 'react-chartjs-2';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  BarElement,
   LineElement,
   PointElement,
   Title,
@@ -29,6 +28,7 @@ ChartJS.register(
 
 interface Props {
   data: CulturalDecisionData;
+  isPreview?: boolean;
   isFocused?: boolean;
   focusMode?: 'pattern' | 'decision' | 'bias';
 }
@@ -52,11 +52,49 @@ interface RegionalVariance {
   };
 }
 
-const CulturalDecisionImpact: React.FC<Props> = ({ data, isFocused = false, focusMode = 'decision' }) => {
+const CulturalDecisionImpact: React.FC<Props> = ({ data: initialData, isPreview = false, isFocused = false, focusMode = 'decision' }) => {
   const { customColors } = useTheme();
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const { getProcessedData, columnMapping } = useData();
+  const [data, setData] = useState<CulturalDecisionData>(initialData);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const processedData = getProcessedData();
+        const response = await getDecisionImpact(processedData, columnMapping);
+        setData(response);
+      } catch (err) {
+        console.error("Full error:", err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch decision impact data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+  
+    fetchData();
+  }, [getProcessedData, columnMapping, timeRange]); // Add timeRange dependency
+
+  if (isLoading) {
+    return (
+      <div className="p-6 rounded-lg min-h-[300px] flex items-center justify-center" style={{ backgroundColor: customColors?.tileColor }}>
+        <Loader className="w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="p-4 text-red-500">
+        Error: {error}
+      </div>
+    );
+  }
 
   const getChartConfig = (focusMode: string) => {
     switch (focusMode) {
@@ -165,6 +203,79 @@ const CulturalDecisionImpact: React.FC<Props> = ({ data, isFocused = false, focu
     return true;
   });
 
+  if (isPreview) {
+    return (
+      <div className="p-4 h-full flex flex-col">
+        {/* Header Summary */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-blue-500" />
+            <span className="text-lg font-medium">Decision Impact</span>
+          </div>
+          <div className="flex gap-3 items-center">
+            <span className="text-green-500 flex items-center gap-1">
+              <Brain className="w-4 h-4" />
+              {((data.summary.culturalPeriods.approvalRate - data.summary.normalPeriods.approvalRate) * 100).toFixed(1)}%
+            </span>
+          </div>
+        </div>
+  
+        {/* Approval Rate Comparison */}
+        <div className="flex justify-around mb-2 text-sm">
+          <span className="text-blue-500">Cultural Periods: {(data.summary.culturalPeriods.approvalRate * 100).toFixed(1)}%</span>
+          <span className="text-gray-500">Normal Periods: {(data.summary.normalPeriods.approvalRate * 100).toFixed(1)}%</span>
+        </div>
+  
+        {/* Mini Line Chart (Approval Rate Trend) */}
+        <div className="h-28">
+          <ChartJSLine
+            data={{
+              labels: data.timelineData.map(d => new Date(d.date).toLocaleDateString()),
+              datasets: [{
+                label: 'Approval Rate',
+                data: data.timelineData.map(d => d.approvals / (d.approvals + d.rejections) * 100),
+                borderColor: '#3b82f6',
+                tension: 0.4,
+                pointRadius: 0,
+                fill: false
+              }]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { display: false },
+                y: { 
+                  display: false,
+                  grid: { display: false }
+                }
+              }
+            }}
+          />
+        </div>
+  
+        {/* Key Event Preview */}
+        {data.summary.significantEvents.length > 0 && (
+          <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-100">
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-medium text-sm">{data.summary.significantEvents[0].name}</span>
+              <span className={`text-sm font-medium ${
+                data.summary.significantEvents[0].approvalDelta > 0 ? 'text-green-500' : 'text-red-500'
+              }`}>
+                {data.summary.significantEvents[0].approvalDelta > 0 ? '+' : ''}
+                {data.summary.significantEvents[0].approvalDelta.toFixed(1)}%
+              </span>
+            </div>
+            <div className="text-xs text-gray-500">
+              {new Date(data.summary.significantEvents[0].period.start).toLocaleDateString()} - {new Date(data.summary.significantEvents[0].period.end).toLocaleDateString()}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }  
+
   return (
     <div className="p-6 rounded-lg" style={{ backgroundColor: customColors?.tileColor }}>
       {/* Header */}
@@ -217,8 +328,10 @@ const CulturalDecisionImpact: React.FC<Props> = ({ data, isFocused = false, focu
             }}
           >
             <option value="">All Cultural Events</option>
-            {data.summary.significantEvents.map(event => (
-              <option key={event.name} value={event.name}>{event.name}</option>
+            {data.summary.significantEvents.map((event, index) => (
+              <option key={`${event.name}-${index}`} value={event.name}>
+              {event.name}
+            </option>
             ))}
           </select>
         </div>
@@ -260,47 +373,6 @@ const CulturalDecisionImpact: React.FC<Props> = ({ data, isFocused = false, focu
         </div>
       </div>
 
-      {/* Main Chart */}
-      <div style={{ width: '100%', height: isFocused ? '400px' : '250px' }} className="mb-6">
-        <div style={{ height: '50%' }}>
-          <ChartJSBar
-            data={{
-              labels: filteredData.map(d => d.date),
-              datasets: [
-                {
-                  label: chartConfig.primaryMetric,
-                  data: filteredData.map(d => d[chartConfig.primaryMetric as keyof typeof d]),
-                  backgroundColor: chartConfig.chartColors.primary
-                },
-                {
-                  label: chartConfig.secondaryMetric,
-                  data: filteredData.map(d => d[chartConfig.secondaryMetric as keyof typeof d]),
-                  backgroundColor: chartConfig.chartColors.secondary
-                }
-              ]
-            }}
-          />
-        </div>
-        <div style={{ height: '50%' }}>
-          <ChartJSLine
-            data={{
-              labels: filteredData.map(d => d.date),
-              datasets: [{
-                label: 'Approval Rate',
-                data: filteredData.map(d => d.approvalRate),
-                borderColor: '#6366F1',
-                tension: 0.1
-              }]
-            }}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: { y: { beginAtZero: true } }
-            }}
-          />
-        </div>
-      </div>
-
       {/* Regional Breakdown */}
       {isFocused && (
         <div className="mt-6">
@@ -335,30 +407,61 @@ const CulturalDecisionImpact: React.FC<Props> = ({ data, isFocused = false, focu
         </div>
       )}
 
-      {/* Significant Events */}
-      <div className="mt-4">
-        <h4 className="text-sm font-medium mb-2">Significant Events</h4>
-        <div className="space-y-2">
-          {data.summary.significantEvents.map((event, i) => (
-            <div 
-              key={i}
-              className="p-2 rounded text-sm cursor-pointer hover:bg-opacity-80"
-              style={{ backgroundColor: customColors?.backgroundColor }}
-              onClick={() => setSelectedEvent(event.name === selectedEvent ? null : event.name)}
-            >
-              <div className="font-medium">{event.name}</div>
-              <div className="flex justify-between items-center mt-1">
-                <span className="opacity-70">
-                  {new Date(event.period.start).toLocaleDateString()} - {new Date(event.period.end).toLocaleDateString()}
-                </span>
-                <span className={event.approvalDelta > 0 ? 'text-green-500' : 'text-red-500'}>
-                  {event.approvalDelta > 0 ? '+' : ''}{event.approvalDelta.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-          ))}
+{/* Significant Events */}
+<div className="mt-6">
+  <h4 className="text-sm font-medium mb-2">Significant Events</h4>
+  
+  {data.summary.significantEvents.length === 0 ? (
+    <p className="text-sm opacity-70">No significant events detected.</p>
+  ) : (
+    <div className="space-y-2">
+      {data.summary.significantEvents.slice(0, 3).map((event, i) => (
+        <div 
+          key={i}
+          className="p-3 rounded"
+          style={{ backgroundColor: customColors?.backgroundColor }}
+        >
+          <div className="font-medium">{event.name}</div>
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-sm opacity-70">
+              {new Date(event.period.start).toLocaleDateString()}
+            </span>
+            <span className={event.approvalDelta > 0 ? 'text-green-500' : 'text-red-500'}>
+              {event.approvalDelta > 0 ? '+' : ''}{event.approvalDelta.toFixed(1)}%
+            </span>
+          </div>
         </div>
-      </div>
+      ))}
+
+      {/* Expandable Dropdown */}
+      {data.summary.significantEvents.length > 3 && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-blue-500">View More Events</summary>
+          <div className="mt-2 space-y-2">
+            {data.summary.significantEvents.slice(3).map((event, i) => (
+              <div 
+                key={i}
+                className="p-3 rounded"
+                style={{ backgroundColor: customColors?.backgroundColor }}
+              >
+                <div className="font-medium">{event.name}</div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm opacity-70">
+                    {new Date(event.period.start).toLocaleDateString()}
+                  </span>
+                  <span className={event.approvalDelta > 0 ? 'text-green-500' : 'text-red-500'}>
+                    {event.approvalDelta > 0 ? '+' : ''}{event.approvalDelta.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  )}
+</div>
+
 
       {/* Regional Comparison */}
       <RegionalComparison data={data} />
