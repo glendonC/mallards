@@ -1,8 +1,6 @@
-# models/schemas.py
-
-from typing import List, Optional, Dict, Any, Literal, Union, TypeVar
+from typing import List, Optional, Dict, Any, Literal, Union
 from datetime import datetime
-from pydantic import BaseModel, Field, validator, ValidationError
+from pydantic import BaseModel, Field, validator
 
 class RegionMetrics(BaseModel):
     approvalRate: float
@@ -28,10 +26,10 @@ class CommunityImpactResponse(BaseModel):
     filters: Dict[str, List[str]]
 
 class Transaction(BaseModel):
-    transactionDate: datetime  # Changed from snake_case to camelCase
+    transactionDate: datetime
     amount: float
-    transactionType: str       # Changed from snake_case to camelCase
-    approvalStatus: str        # Changed from snake_case to camelCase
+    transactionType: str
+    approvalStatus: str
     region: Optional[str]
 
     class Config:
@@ -52,7 +50,7 @@ class ColumnMapping(BaseModel):
 
 class DetectionRule(BaseModel):
     threshold: float = Field(1000.0, gt=0)
-    timeWindow: str = Field(..., pattern='^[0-9]+[hdwmy]$')  # e.g., 24h, 7d, 30d
+    timeWindow: str = Field(..., pattern='^[0-9]+[hdwmy]$')
     sensitivity: float = Field(2.0, gt=0)
     visualizationType: Literal['line', 'bar', 'scatter'] = 'line'
     alertThreshold: float = Field(0.8, ge=0, le=1)
@@ -111,7 +109,7 @@ class DetailedPerformanceMetrics(BaseModel):
 # Simulation Panel AI Insights
 
 class SimulationMetrics(BaseModel):
-    approvalRate: Dict[str, float]  # {"before": float, "after": float}
+    approvalRate: Dict[str, float]
     riskScore: Dict[str, float]
     culturalAlignment: Dict[str, float]
     financialInclusion: Dict[str, float]
@@ -148,8 +146,6 @@ class ScenarioInfo(BaseModel):
     name: str
     description: str
 
-# Simulation Sandbox AI Insights START
-
 class AIAnalysisRequest(BaseModel):
     results: Optional[SimulationResults]
     parameters: SimulationParameters
@@ -163,7 +159,7 @@ class Insight(BaseModel):
     category: Literal["general", "risks", "opportunities"]
     content: str
     confidence: float = Field(ge=0, le=1)
-    source: str  # Which component generated this insight
+    source: str
     relatedMetrics: List[str] = []
 
 class AIAnalysisResponse(BaseModel):
@@ -189,7 +185,7 @@ class AIQueryRequest(BaseModel):
 # Dashboard AI Insights START
 class DashboardAnalysisRequest(BaseModel):
     componentType: Literal["cultural-alignment", "cultural-periods", "decision-impact", "pattern-alerts", "community-impact", "event-analytics"]
-    data: Dict[str, Any]  # Use Dict for flexibility since the data structure varies by component
+    data: Dict[str, Any]
     focusMode: Optional[str] = None
 
 class DashboardAnalysisResponse(BaseModel):

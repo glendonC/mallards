@@ -1,11 +1,8 @@
-# config/settings.py
-
-from typing import Dict, Any
 import os
 
 # OpenAI Settings
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Replace with your actual API key
-OPENAI_MODEL = "gpt-4-0125-preview"  # Or whatever model you want to use
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = "gpt-4-0125-preview"
 
 # Model Configuration Settings
 MODEL_CONFIGS = {
