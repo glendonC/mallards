@@ -1,4 +1,3 @@
-from typing import List, Dict, Any, Optional
 import openai
 import json
 from datetime import datetime
@@ -9,7 +8,6 @@ from models.schemas import (
     AIAnalysisResponse,
     AIQueryRequest,
     Insight,
-    ConversationMessage
 )
 from .prompt_templates import (
     get_analysis_prompt,
