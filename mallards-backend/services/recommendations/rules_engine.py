@@ -1,7 +1,4 @@
-from typing import List, Dict
-import pandas as pd
-import numpy as np
-
+from typing import Dict
 def apply_rules(patterns: Dict, risks: Dict) -> Dict:
     """
     Applies business rules to patterns and risks.

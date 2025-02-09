@@ -20,34 +20,34 @@ class OptimizerService:
         
         prompt = f"""You are an AI expert optimizing financial lending parameters to improve fairness while managing risk.
 
-SCENARIO: {scenario_context}
+        SCENARIO: {scenario_context}
 
-CURRENT PARAMETERS:
-{json.dumps(current_parameters.dict(), indent=2)}
+        CURRENT PARAMETERS:
+        {json.dumps(current_parameters.dict(), indent=2)}
 
-CURRENT RESULTS:
-{json.dumps(current_results.dict(), indent=2)}
+        CURRENT RESULTS:
+        {json.dumps(current_results.dict(), indent=2)}
 
-Generate optimized parameters and detailed reasoning. Return a JSON object structured as:
-{{
-  "optimizedParameters": {{
-    "approvalRateSensitivity": <float, 0.7-1.5>,
-    "spendingMultiplier": <float, 0.8-1.5>,
-    "fraudThreshold": <float, 0.7-0.95>,
-    "culturalWeighting": <float, 0.8-1.6>
-  }},
-  "improvements": [
-    {{
-      "metric": <string>,
-      "before": <float>,
-      "after": <float>,
-      "percentChange": <float>
-    }}
-  ],
-  "reasoning": [<string explanations>]
-}}
+        Generate optimized parameters and detailed reasoning. Return a JSON object structured as:
+        {{
+        "optimizedParameters": {{
+            "approvalRateSensitivity": <float, 0.7-1.5>,
+            "spendingMultiplier": <float, 0.8-1.5>,
+            "fraudThreshold": <float, 0.7-0.95>,
+            "culturalWeighting": <float, 0.8-1.6>
+        }},
+        "improvements": [
+            {{
+            "metric": <string>,
+            "before": <float>,
+            "after": <float>,
+            "percentChange": <float>
+            }}
+        ],
+        "reasoning": [<string explanations>]
+        }}
 
-Focus on improving cultural inclusivity while maintaining risk controls."""
+        Focus on improving cultural inclusivity while maintaining risk controls."""
 
         response = self.client.chat.completions.create(
             model="gpt-4-turbo-preview",
@@ -78,25 +78,25 @@ Focus on improving cultural inclusivity while maintaining risk controls."""
         
         prompt = f"""You are an AI expert providing quick insights on financial lending parameters.
 
-SCENARIO: {scenario_context}
+        SCENARIO: {scenario_context}
 
-CURRENT PARAMETERS:
-{json.dumps(current_parameters.dict(), indent=2)}
+        CURRENT PARAMETERS:
+        {json.dumps(current_parameters.dict(), indent=2)}
 
-CURRENT RESULTS:
-{json.dumps(current_results.dict(), indent=2)}
+        CURRENT RESULTS:
+        {json.dumps(current_results.dict(), indent=2)}
 
-Generate 2-3 brief, specific insights about potential parameter adjustments that could improve performance.
-Focus on the most impactful changes. Return a JSON object with an 'insights' array of strings.
-Each insight should be 1-2 sentences and actionable.
+        Generate 2-3 brief, specific insights about potential parameter adjustments that could improve performance.
+        Focus on the most impactful changes. Return a JSON object with an 'insights' array of strings.
+        Each insight should be 1-2 sentences and actionable.
 
-Example format:
-{{
-    "insights": [
-        "Your approval sensitivity (0.8) is lower than optimal for this cultural period—consider increasing to 1.0-1.2 to better accommodate seasonal patterns.",
-        "The cultural weighting could be increased to better balance risk and inclusion."
-    ]
-}}"""
+        Example format:
+        {{
+            "insights": [
+                "Your approval sensitivity (0.8) is lower than optimal for this cultural period—consider increasing to 1.0-1.2 to better accommodate seasonal patterns.",
+                "The cultural weighting could be increased to better balance risk and inclusion."
+            ]
+        }}"""
 
         response = self.client.chat.completions.create(
             model="gpt-4-turbo-preview",
