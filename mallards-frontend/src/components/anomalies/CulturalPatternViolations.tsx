@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Line } from 'react-chartjs-2';
-import { AlertCircle, Calendar, TrendingUp } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { CulturalViolation } from '../../types/anomaly';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ChartData } from 'chart.js';
-import { CulturalPeriod } from '@/types/dashboard';
 
 // Register ChartJS components
 ChartJS.register(
@@ -465,8 +464,6 @@ const CulturalPatternViolations: React.FC<Props> = ({
           </div>
         ))}
       </div>
-
-      
     </div>
   );
 };

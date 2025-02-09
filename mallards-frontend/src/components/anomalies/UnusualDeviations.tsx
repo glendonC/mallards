@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertOctagon, AlertTriangle, AlertCircle, Info, ArrowUp, ArrowDown } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { UnusualDeviation } from '../../types/anomaly';
 import { useDeviations } from '@/hooks/useDeviations';
