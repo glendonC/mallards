@@ -1,7 +1,6 @@
-import numpy as np
 import pandas as pd
 from statsmodels.tsa.arima.model import ARIMA
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List, Dict, Union, Optional
 from config.settings import MODEL_CONFIGS
 

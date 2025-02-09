@@ -1,6 +1,5 @@
 import pandas as pd
 from prophet import Prophet
-from datetime import datetime, timedelta
 from typing import List, Dict, Union, Optional
 from config.settings import MODEL_CONFIGS
 
