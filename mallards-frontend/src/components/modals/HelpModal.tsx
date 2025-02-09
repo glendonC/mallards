@@ -4,14 +4,16 @@ import {
   SiReact, 
   SiTypescript, 
   SiTailwindcss, 
-  SiAmazon,
-  SiAmazons3,
-  SiAwsamplify 
+  SiFastapi,
+  SiPython, 
+  SiOpenai,
+  SiChartdotjs,
+  SiFramer,
+  SiVite
 } from "react-icons/si";
 
 interface HelpModalProps {
   onClose: () => void;
-  onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
@@ -37,25 +39,25 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             </span>
 
             <OrbitingCircles iconSize={40}>
-              <SiReact color="#3B82F6" />
-              <SiTypescript color="#2563EB" />
-              <SiTailwindcss color="#14B8A6" />
+              <SiReact color="#61DAFB" />      {/* React */}
+              <SiTypescript color="#3178C6" />  {/* TypeScript */}
+              <SiTailwindcss color="#38B2AC" /> {/* TailwindCSS */}
             </OrbitingCircles>
             <OrbitingCircles iconSize={35} radius={130} speed={1.5}>
-              <SiAmazon color="#FF9900" />      {/* AWS General - standard orange */}
-              <SiAmazons3 color="#569A31" />    {/* S3 - green */}
-              <SiAmazon color="#FF9900" />      {/* Lambda - orange */}
-              <SiAmazon color="#C925D1" />      {/* SNS - purple */}
-              <SiAmazon color="#01A88D" />      {/* SageMaker - teal */}
-              <SiAwsamplify color="#FF9900" />  {/* Amplify - orange */}
+              <SiFastapi color="#009688" />   {/* FastAPI */}
+              <SiPython color="#3776AB" />    {/* Python */}
+              <SiOpenai color="#0A84FF" />    {/* OpenAI API */}
+              <SiChartdotjs color="#FF6384" /> {/* Chart.js */}
+              <SiFramer color="#0055FF" />    {/* Framer Motion */}
+              <SiVite color="#646CFF" />      {/* Vite */}
             </OrbitingCircles>
           </div>
 
           <div className="mt-8 text-center max-w-2xl">
-            <h3 className="text-xl font-semibold mb-4">Welcome to Our Dashboard</h3>
+            <h3 className="text-xl font-semibold mb-4">Welcome to Our AI-Driven Financial Dashboard</h3>
             <p className="text-gray-600 mb-4">
-              This dashboard is built with modern web technologies to provide a powerful and intuitive experience.
-              The visualization above shows the core technologies that power this application.
+              This dashboard leverages cutting-edge AI to analyze financial trends, optimize lending policies, and simulate real-world decision-making.
+              The visualization above shows the core technologies powering this application.
             </p>
             <p className="text-gray-600">
               For additional support or documentation, please visit our documentation page or contact the support team.
