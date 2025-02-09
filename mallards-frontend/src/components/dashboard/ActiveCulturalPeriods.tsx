@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { useRef } from "react";
+import { useEffect, useState } from "react";
 import { CulturalPeriodsData, CulturalPeriod } from "../../types/dashboard";
 
-const PAGE_SIZE = 10; // ✅ Number of items to show at once
+const PAGE_SIZE = 10;
 
 const ActiveCulturalPeriods = ({ 
   data, 
@@ -13,12 +12,12 @@ const ActiveCulturalPeriods = ({
   data?: CulturalPeriodsData | null,
   isPreview: boolean, 
   isFocused: boolean, 
-  customColors?: any  // Add ? to make it optional
+  customColors?: any
 }) => {
   const [periodData, setPeriodData] = useState(data ?? null);
   const [activeExpanded, setActiveExpanded] = useState(false);
   const [upcomingExpanded, setUpcomingExpanded] = useState(false);
-  const [visibleEvents, setVisibleEvents] = useState(PAGE_SIZE); // ✅ Controls pagination
+  const [visibleEvents, setVisibleEvents] = useState(PAGE_SIZE);
 
   useEffect(() => {
     if (data) setPeriodData(data);
